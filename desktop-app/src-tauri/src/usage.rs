@@ -1,11 +1,11 @@
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use log::info;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use anyhow::{Result, Context};
-use log::info;
-use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppUsage {
@@ -43,7 +43,7 @@ impl UsageTracker {
         }
 
         let (app_name, window_title) = get_active_app_info()?;
-        
+
         if self.current_app.as_ref() != Some(&app_name) {
             // App changed, record the previous app usage
             if let Some(prev_app) = &self.current_app {
@@ -56,22 +56,26 @@ impl UsageTracker {
                         end_time: Some(Utc::now()),
                         duration_seconds: Some(duration.num_seconds() as u64),
                     };
-                    
+
                     let mut session_data = self.session_data.lock().unwrap();
                     session_data.insert(prev_app.clone(), app_usage);
-                    
-                    info!("App usage recorded: {} for {} seconds", prev_app, duration.num_seconds());
+
+                    info!(
+                        "App usage recorded: {} for {} seconds",
+                        prev_app,
+                        duration.num_seconds()
+                    );
                 }
             }
-            
+
             // Start tracking new app
             self.current_app = Some(app_name.clone());
             self.current_window_title = window_title.clone();
             self.app_start_time = Some(Utc::now());
-            
+
             info!("Now tracking app: {}", app_name);
         }
-        
+
         self.last_check = Instant::now();
         Ok(())
     }
@@ -83,15 +87,14 @@ impl UsageTracker {
 
 #[tauri::command]
 pub fn get_active_app() -> Result<String, String> {
-    let (app_name, _) = get_active_app_info()
-        .map_err(|e| format!("Failed to get active app: {}", e))?;
+    let (app_name, _) =
+        get_active_app_info().map_err(|e| format!("Failed to get active app: {}", e))?;
     Ok(app_name)
 }
 
 #[tauri::command]
 pub fn get_active_app_with_title() -> Result<(String, Option<String>), String> {
-    get_active_app_info()
-        .map_err(|e| format!("Failed to get active app info: {}", e))
+    get_active_app_info().map_err(|e| format!("Failed to get active app info: {}", e))
 }
 
 fn get_active_app_info() -> Result<(String, Option<String>)> {
@@ -99,17 +102,17 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
     {
         get_active_app_windows()
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         get_active_app_macos()
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         get_active_app_linux()
     }
-    
+
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         Err(anyhow::anyhow!("Unsupported operating system"))
@@ -118,10 +121,12 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
 
 #[cfg(target_os = "windows")]
 fn get_active_app_windows() -> Result<(String, Option<String>)> {
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
-    use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
     use windows::Win32::Foundation::{CloseHandle, HMODULE};
+    use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
+    };
 
     unsafe {
         let foreground_window = GetForegroundWindow();
@@ -142,7 +147,7 @@ fn get_active_app_windows() -> Result<(String, Option<String>)> {
         // Get process ID
         let mut process_id = 0u32;
         GetWindowThreadProcessId(foreground_window, Some(&mut process_id));
-        
+
         if process_id == 0 {
             return Err(anyhow::anyhow!("Failed to get process ID"));
         }
@@ -154,7 +159,7 @@ fn get_active_app_windows() -> Result<(String, Option<String>)> {
         // Get executable path
         let mut path_buffer = [0u16; 512];
         let path_length = GetModuleFileNameExW(process_handle, HMODULE(0), &mut path_buffer);
-        
+
         CloseHandle(process_handle);
 
         if path_length == 0 {
@@ -177,13 +182,13 @@ fn get_active_app_macos() -> Result<(String, Option<String>)> {
     use cocoa::appkit::NSWorkspace;
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
-    use objc::runtime::{Object, Class};
+    use objc::runtime::{Class, Object};
     use objc::{msg_send, sel, sel_impl};
 
     unsafe {
         let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
         let active_app: id = msg_send![workspace, frontmostApplication];
-        
+
         if active_app == nil {
             return Err(anyhow::anyhow!("No active application found"));
         }
@@ -204,13 +209,13 @@ fn get_active_window_title_macos() -> Option<String> {
     use cocoa::appkit::{NSApplication, NSWindow, NSWindowList};
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
-    use objc::runtime::{Object, Class};
+    use objc::runtime::{Class, Object};
     use objc::{msg_send, sel, sel_impl};
 
     unsafe {
         let app: id = msg_send![class!(NSApplication), sharedApplication];
         let windows: id = msg_send![app, windows];
-        
+
         if windows == nil {
             return None;
         }
@@ -219,7 +224,7 @@ fn get_active_window_title_macos() -> Option<String> {
         for i in 0..count {
             let window: id = msg_send![windows, objectAtIndex: i];
             let is_key: bool = msg_send![window, isKeyWindow];
-            
+
             if is_key {
                 let title: id = msg_send![window, title];
                 if title != nil {
@@ -228,21 +233,21 @@ fn get_active_window_title_macos() -> Option<String> {
                 }
             }
         }
-        
+
         None
     }
 }
 
 #[cfg(target_os = "linux")]
 fn get_active_app_linux() -> Result<(String, Option<String>)> {
-    use x11rb::connection::Connection;
-    use x11rb::protocol::xproto::{Atom, Window, get_property, get_input_focus};
-    use x11rb::protocol::xproto::{get_window_attributes, get_property_reply};
-    use x11rb::rust_connection::RustConnection;
     use std::collections::HashMap;
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::{get_input_focus, get_property, Atom, Window};
+    use x11rb::protocol::xproto::{get_property_reply, get_window_attributes};
+    use x11rb::rust_connection::RustConnection;
 
-    let (conn, screen_num) = RustConnection::connect(None)
-        .context("Failed to connect to X11 server")?;
+    let (conn, screen_num) =
+        RustConnection::connect(None).context("Failed to connect to X11 server")?;
     let screen = &conn.setup().roots[screen_num];
 
     // Get active window
@@ -250,7 +255,7 @@ fn get_active_app_linux() -> Result<(String, Option<String>)> {
         .context("Failed to get input focus")?
         .reply()
         .context("Failed to get input focus reply")?;
-    
+
     let active_window = focus_reply.focus;
     if active_window == Window::none() {
         return Err(anyhow::anyhow!("No active window found"));
@@ -267,8 +272,8 @@ fn get_active_app_linux() -> Result<(String, Option<String>)> {
 
 #[cfg(target_os = "linux")]
 fn get_window_title_linux(conn: &RustConnection, window: Window) -> Result<Option<String>> {
-    use x11rb::protocol::xproto::{get_property, get_property_reply};
     use x11rb::protocol::xproto::AtomEnum;
+    use x11rb::protocol::xproto::{get_property, get_property_reply};
 
     let title_reply = get_property(
         conn,
@@ -293,10 +298,10 @@ fn get_window_title_linux(conn: &RustConnection, window: Window) -> Result<Optio
 
 #[cfg(target_os = "linux")]
 fn get_process_name_from_window_linux(conn: &RustConnection, window: Window) -> Result<String> {
-    use x11rb::protocol::xproto::{get_property, get_property_reply};
-    use x11rb::protocol::xproto::AtomEnum;
     use std::fs;
     use std::path::Path;
+    use x11rb::protocol::xproto::AtomEnum;
+    use x11rb::protocol::xproto::{get_property, get_property_reply};
 
     // Try to get PID from window properties
     let pid_reply = get_property(
@@ -315,7 +320,7 @@ fn get_process_name_from_window_linux(conn: &RustConnection, window: Window) -> 
         if !reply.value.is_empty() {
             let pid_bytes = &reply.value[0..4];
             let pid = u32::from_ne_bytes([pid_bytes[0], pid_bytes[1], pid_bytes[2], pid_bytes[3]]);
-            
+
             // Read process name from /proc
             let proc_path = format!("/proc/{}/comm", pid);
             if let Ok(comm) = fs::read_to_string(&proc_path) {

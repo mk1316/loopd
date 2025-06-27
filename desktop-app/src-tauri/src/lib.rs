@@ -1,13 +1,13 @@
 mod usage;
 
+use chrono::Local;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
-use tauri::{Manager, State, Emitter};
-use chrono::Local;
+use tauri::{Emitter, Manager, State};
 
 type UsageMap = Arc<Mutex<HashMap<String, u64>>>;
 
@@ -29,7 +29,7 @@ fn start_tracking(usage_times: UsageMap, app_handle: tauri::AppHandle) {
                 if let Err(e) = tracker.update() {
                     log::warn!("Failed to update usage tracker: {}", e);
                 }
-                
+
                 // Check if app has changed and update tracking
                 if let Some(app_name) = tracker.get_current_app() {
                     if current_app.as_ref() != Some(&app_name) {
@@ -39,7 +39,7 @@ fn start_tracking(usage_times: UsageMap, app_handle: tauri::AppHandle) {
                             let mut usage = usage_times.lock().unwrap();
                             *usage.entry(prev_app.clone()).or_insert(0) += elapsed;
                         }
-                        
+
                         // Start tracking new app
                         current_app = Some(app_name.clone());
                         last_switch_time = Local::now();
@@ -47,7 +47,7 @@ fn start_tracking(usage_times: UsageMap, app_handle: tauri::AppHandle) {
                     }
                 }
             }
-            
+
             thread::sleep(Duration::from_secs(1));
         }
     });
@@ -56,6 +56,7 @@ fn start_tracking(usage_times: UsageMap, app_handle: tauri::AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_sql::Builder::new().build())
         .manage(Arc::new(Mutex::new(HashMap::<String, u64>::new())))
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -65,12 +66,12 @@ pub fn run() {
                         .build(),
                 )?;
             }
-            
+
             // Start background usage tracking task
             let usage_times = app.state::<UsageMap>().inner().clone();
             let app_handle = app.handle().clone();
             start_tracking(usage_times, app_handle);
-            
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
