@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use log::info;
 use once_cell::sync::Lazy;
@@ -121,6 +121,7 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
 
 #[cfg(target_os = "windows")]
 fn get_active_app_windows() -> Result<(String, Option<String>)> {
+    use anyhow::Context;
     use windows::Win32::Foundation::{CloseHandle, HMODULE};
     use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
     use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
@@ -182,7 +183,6 @@ fn get_active_app_macos() -> Result<(String, Option<String>)> {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
     use objc::{msg_send, sel, sel_impl, class};
-    use objc::runtime::{Object, Class};
 
     unsafe {
         let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
@@ -205,7 +205,6 @@ fn get_active_window_title_macos() -> Option<String> {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
     use objc::{msg_send, sel, sel_impl, class};
-    use objc::runtime::{Object, Class};
 
     unsafe {
         let app: id = msg_send![class!(NSApplication), sharedApplication];
