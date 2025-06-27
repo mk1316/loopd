@@ -160,7 +160,7 @@ fn get_active_app_windows() -> Result<(String, Option<String>)> {
         let mut path_buffer = [0u16; 512];
         let path_length = GetModuleFileNameExW(process_handle, HMODULE(0), &mut path_buffer);
 
-        CloseHandle(process_handle);
+        let _ = CloseHandle(process_handle);
 
         if path_length == 0 {
             return Err(anyhow::anyhow!("Failed to get module filename"));
