@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Result, Context};
 use chrono::{DateTime, Utc};
 use log::info;
 use once_cell::sync::Lazy;
@@ -6,9 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use anyhow::{Result, Context};
-use log::info;
-use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppUsage {
@@ -184,26 +181,21 @@ fn get_active_app_windows() -> Result<(String, Option<String>)> {
 fn get_active_app_macos() -> Result<(String, Option<String>)> {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
+    use objc::{msg_send, sel, sel_impl, class};
     use objc::runtime::{Object, Class};
-    use objc::{msg_send, sel, sel_impl};
 
     unsafe {
         let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
         let active_app: id = msg_send![workspace, frontmostApplication];
-
         if active_app == nil {
             return Err(anyhow::anyhow!("No active application found"));
         }
-
         let app_name: id = msg_send![active_app, localizedName];
         let app_name_str = NSString::UTF8String(app_name);
         let app_name = std::ffi::CStr::from_ptr(app_name_str)
             .to_string_lossy()
             .into_owned();
-
-        // Get window title (this is more complex on macOS)
         let window_title = get_active_window_title_macos();
-
         Ok((app_name, window_title))
     }
 }
@@ -212,22 +204,19 @@ fn get_active_app_macos() -> Result<(String, Option<String>)> {
 fn get_active_window_title_macos() -> Option<String> {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
+    use objc::{msg_send, sel, sel_impl, class};
     use objc::runtime::{Object, Class};
-    use objc::{msg_send, sel, sel_impl};
 
     unsafe {
         let app: id = msg_send![class!(NSApplication), sharedApplication];
         let windows: id = msg_send![app, windows];
-
         if windows == nil {
             return None;
         }
-
         let count: usize = msg_send![windows, count];
         for i in 0..count {
             let window: id = msg_send![windows, objectAtIndex: i];
             let is_key: bool = msg_send![window, isKeyWindow];
-
             if is_key {
                 let title: id = msg_send![window, title];
                 if title != nil {
@@ -238,7 +227,6 @@ fn get_active_window_title_macos() -> Option<String> {
                 }
             }
         }
-
         None
     }
 }
