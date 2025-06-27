@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use anyhow::{Result, Context};
+use log::info;
+use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppUsage {
@@ -179,10 +182,9 @@ fn get_active_app_windows() -> Result<(String, Option<String>)> {
 
 #[cfg(target_os = "macos")]
 fn get_active_app_macos() -> Result<(String, Option<String>)> {
-    use cocoa::appkit::NSWorkspace;
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
-    use objc::runtime::{Class, Object};
+    use objc::runtime::{Object, Class};
     use objc::{msg_send, sel, sel_impl};
 
     unsafe {
@@ -195,7 +197,9 @@ fn get_active_app_macos() -> Result<(String, Option<String>)> {
 
         let app_name: id = msg_send![active_app, localizedName];
         let app_name_str = NSString::UTF8String(app_name);
-        let app_name = app_name_str.to_string();
+        let app_name = std::ffi::CStr::from_ptr(app_name_str)
+            .to_string_lossy()
+            .into_owned();
 
         // Get window title (this is more complex on macOS)
         let window_title = get_active_window_title_macos();
@@ -206,10 +210,9 @@ fn get_active_app_macos() -> Result<(String, Option<String>)> {
 
 #[cfg(target_os = "macos")]
 fn get_active_window_title_macos() -> Option<String> {
-    use cocoa::appkit::{NSApplication, NSWindow, NSWindowList};
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
-    use objc::runtime::{Class, Object};
+    use objc::runtime::{Object, Class};
     use objc::{msg_send, sel, sel_impl};
 
     unsafe {
@@ -229,7 +232,9 @@ fn get_active_window_title_macos() -> Option<String> {
                 let title: id = msg_send![window, title];
                 if title != nil {
                     let title_str = NSString::UTF8String(title);
-                    return Some(title_str.to_string());
+                    return Some(std::ffi::CStr::from_ptr(title_str)
+                        .to_string_lossy()
+                        .into_owned());
                 }
             }
         }
