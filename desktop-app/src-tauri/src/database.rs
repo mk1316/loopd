@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite, Row};
 use tauri::State;
 use uuid::Uuid;
+use crate::Db;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Device {
@@ -76,26 +77,81 @@ impl Database {
         Ok(device_id)
     }
 
+    pub async fn initialize_device_with_id(&self, device_id: String, device_name: String, os: String) -> Result<String, sqlx::Error> {
+        let now = Utc::now();
+
+        // Check if device already exists
+        let existing_device = sqlx::query("SELECT id FROM devices WHERE id = ?")
+            .bind(&device_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if existing_device.is_none() {
+            // Insert new device with the provided ID
+            sqlx::query(
+                "INSERT INTO devices (id, name, os, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+            )
+            .bind(&device_id)
+            .bind(&device_name)
+            .bind(&os)
+            .bind(now)
+            .bind(now)
+            .execute(&self.pool)
+            .await?;
+            println!("[DB] Created device with persistent ID: {}", device_id);
+        } else {
+            println!("[DB] Device already exists with ID: {}", device_id);
+        }
+
+        Ok(device_id)
+    }
+
     pub async fn end_current_session(&self, device_id: &str) -> Result<(), sqlx::Error> {
         let now = Utc::now();
 
-        sqlx::query(
-            "UPDATE sessions SET end_time = ?, duration_sec = ? - start_time WHERE device_id = ? AND end_time IS NULL"
+        println!("[DB] Ending session for device_id: {}", device_id);
+
+        // First, get the current session to calculate duration
+        let session_row = sqlx::query(
+            "SELECT start_time FROM sessions WHERE device_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1"
         )
-        .bind(now)
-        .bind(now)
         .bind(device_id)
-        .execute(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
+
+        if let Some(row) = session_row {
+            let start_time: DateTime<Utc> = row.get("start_time");
+            let duration_sec = (now - start_time).num_seconds();
+
+            println!("[DB] Session duration: {} seconds", duration_sec);
+
+            let res = sqlx::query(
+                "UPDATE sessions SET end_time = ?, duration_sec = ? WHERE device_id = ? AND end_time IS NULL"
+            )
+            .bind(now)
+            .bind(duration_sec)
+            .bind(device_id)
+            .execute(&self.pool)
+            .await;
+            if let Err(e) = &res {
+                println!("[DB] Error ending session: {}", e);
+            }
+            res?;
+        } else {
+            println!("[DB] No active session found to end");
+        }
 
         Ok(())
     }
 
     pub async fn start_new_session(&self, device_id: &str, app_name: String, window_title: String) -> Result<String, sqlx::Error> {
+        println!("[DB] Starting new session for device_id: {}, app: {}, title: {}", device_id, app_name, window_title);
         let session_id = Uuid::new_v4().to_string();
         let now = Utc::now();
 
-        sqlx::query(
+        println!("[DB] Starting new session for device_id: {}, app: {}", device_id, app_name);
+
+        let res = sqlx::query(
             "INSERT INTO sessions (id, device_id, user_id, app_name, window_title, start_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&session_id)
@@ -106,23 +162,39 @@ impl Database {
         .bind(now)
         .bind(now)
         .execute(&self.pool)
-        .await?;
+        .await;
+        if let Err(e) = &res {
+            println!("[DB] Error starting new session: {}", e);
+        }
 
+        res?;
         Ok(session_id)
     }
 
     pub async fn update_current_session(&self, device_id: &str, app_name: String, window_title: String) -> Result<(), sqlx::Error> {
         let now = Utc::now();
 
-        // End current session
-        sqlx::query(
-            "UPDATE sessions SET end_time = ?, duration_sec = ? - start_time WHERE device_id = ? AND end_time IS NULL"
+        // End current session with proper duration calculation
+        let session_row = sqlx::query(
+            "SELECT start_time FROM sessions WHERE device_id = ? AND end_time IS NULL ORDER BY start_time DESC LIMIT 1"
         )
-        .bind(now)
-        .bind(now)
         .bind(device_id)
-        .execute(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
+
+        if let Some(row) = session_row {
+            let start_time: DateTime<Utc> = row.get("start_time");
+            let duration_sec = (now - start_time).num_seconds();
+
+            sqlx::query(
+                "UPDATE sessions SET end_time = ?, duration_sec = ? WHERE device_id = ? AND end_time IS NULL"
+            )
+            .bind(now)
+            .bind(duration_sec)
+            .bind(device_id)
+            .execute(&self.pool)
+            .await?;
+        }
 
         // Start new session
         let session_id = Uuid::new_v4().to_string();
@@ -279,8 +351,6 @@ impl Database {
 
     pub async fn set_user_id(&self, device_id: &str, user_id: String) -> Result<(), sqlx::Error> {
         let now = Utc::now();
-
-        // Update device
         sqlx::query(
             "UPDATE devices SET user_id = ?, updated_at = ? WHERE id = ?"
         )
@@ -289,24 +359,37 @@ impl Database {
         .bind(device_id)
         .execute(&self.pool)
         .await?;
+        Ok(())
+    }
 
-        // Update all sessions for this device
-        sqlx::query(
-            "UPDATE sessions SET user_id = ? WHERE device_id = ?"
-        )
-        .bind(&user_id)
-        .bind(device_id)
-        .execute(&self.pool)
-        .await?;
-
+    pub async fn clear_all_data(&self) -> Result<(), sqlx::Error> {
+        println!("[DB] Clearing all usage data from database");
+        
+        // Clear all sessions (but keep devices)
+        let sessions_deleted = sqlx::query("DELETE FROM sessions")
+            .execute(&self.pool)
+            .await?;
+        println!("[DB] Deleted {} sessions", sessions_deleted.rows_affected());
+        
+        // Note: We do NOT delete devices to preserve the persistent device ID
+        println!("[DB] All usage data cleared successfully (device ID preserved)");
         Ok(())
     }
 }
 
 // Tauri commands
 #[tauri::command]
+pub async fn get_usage_summary(
+    db: State<'_, Db>,
+) -> Result<Vec<UsageSummary>, String> {
+    db.get_usage_summary()
+        .await
+        .map_err(|e| format!("Failed to get usage summary: {}", e))
+}
+
+#[tauri::command]
 pub async fn get_usage_summary_command(
-    db: State<'_, Database>,
+    db: State<'_, Db>,
 ) -> Result<Vec<UsageSummary>, String> {
     db.get_usage_summary()
         .await
@@ -315,7 +398,7 @@ pub async fn get_usage_summary_command(
 
 #[tauri::command]
 pub async fn get_usage_summary_for_period_command(
-    db: State<'_, Database>,
+    db: State<'_, Db>,
     days: i64,
 ) -> Result<Vec<UsageSummary>, String> {
     db.get_usage_summary_days(days)
@@ -325,10 +408,41 @@ pub async fn get_usage_summary_for_period_command(
 
 #[tauri::command]
 pub async fn get_current_session_command(
-    db: State<'_, Database>,
+    db: State<'_, Db>,
     device_id: String,
 ) -> Result<Option<Session>, String> {
     db.get_current_session(&device_id)
         .await
-        .map_err(|e| format!("Failed to get current session: {}", e))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn clear_all_data_command(
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    db.clear_all_data()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn clear_all_data_and_reset_command(
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    // First clear all data
+    db.clear_all_data()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    // Then reset the tracking system
+    crate::reset_tracking(&db)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_app_device_id(app_handle: tauri::AppHandle) -> String {
+    crate::get_or_create_device_id(&app_handle)
 } 

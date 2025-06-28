@@ -45,13 +45,17 @@ impl UsageTracker {
     }
 
     pub fn update(&mut self) -> Result<UpdateAction> {
+        println!("[TRACKER] UsageTracker::update called");
         if self.last_check.elapsed() < self.check_interval {
+            println!("[TRACKER] Check interval not elapsed yet, returning None");
             return Ok(UpdateAction::None);
         }
 
         let (app_name, window_title) = get_active_app_info()?;
+        println!("[TRACKER] Detected app: '{}', title: '{:?}', current: '{:?}'", app_name, window_title, self.current_app);
 
         if self.current_app.as_ref() != Some(&app_name) {
+            println!("[TRACKER] App changed! Previous: '{:?}', New: '{}'", self.current_app, app_name);
             // App changed, record the previous app usage
             if let Some(prev_app) = &self.current_app {
                 info!(
@@ -77,6 +81,7 @@ impl UsageTracker {
             });
         }
 
+        println!("[TRACKER] No app change detected, returning None");
         self.last_check = Instant::now();
         Ok(UpdateAction::None)
     }
@@ -141,6 +146,7 @@ impl AppTracker {
 /// Returns (application name, optional window title) synchronously.
 /// This is used by the synchronous [`UsageTracker`] logic.
 fn get_active_app_info() -> Result<(String, Option<String>)> {
+    println!("[TRACKER] get_active_app_info called");
     #[cfg(target_os = "windows")]
     {
         use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextA, GetWindowThreadProcessId};
@@ -154,8 +160,11 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
             GetWindowThreadProcessId(hwnd, Some(&mut process_id));
 
             if process_id == 0 {
+                println!("[TRACKER] Failed to get process ID");
                 return Err(anyhow::anyhow!("Failed to get process ID"));
             }
+
+            println!("[TRACKER] Got process ID: {}", process_id);
 
             // OpenProcess returns Result<HANDLE, Error>
             let process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id)?;
@@ -181,6 +190,7 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
                 None
             };
 
+            println!("[TRACKER] Final result - app: '{}', title: '{:?}'", app_name, window_title);
             return Ok((app_name, window_title));
         }
     }
@@ -261,6 +271,7 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
 /// Get the currently active application name
 #[tauri::command]
 pub async fn get_active_app() -> Result<String, String> {
+    println!("[CMD] get_active_app called");
     #[cfg(target_os = "windows")]
     {
         use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
