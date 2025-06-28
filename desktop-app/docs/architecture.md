@@ -33,6 +33,7 @@
 
 * **Key Components**:
   * `src/app/page.tsx` - Main dashboard with usage display
+  * `src/app/timeline/page.tsx` - Timeline view for chronological app usage history (no table view)
   * `src/lib/supabase.ts` - Supabase client configuration
   * Real-time event listeners for app switching
 
@@ -311,3 +312,5 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu
 **Architecture Version**: 2.0  
 **Last Updated**: December 2024  
 **Status**: Active Development
+
+- App names are now normalized and stored without file extensions for cross-platform consistency (e.g., 'chrome' instead of 'chrome.exe').

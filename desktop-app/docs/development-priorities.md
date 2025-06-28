@@ -223,3 +223,5 @@ Track these metrics to measure progress:
 
 **Last Updated**: December 2024  
 **Status**: Active Development - Phase 1 (Cloud Integration)
+
+Note: App names are now normalized (no file extension, cross-platform consistent) in the relevant sections if needed.

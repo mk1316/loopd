@@ -8,10 +8,12 @@ A powerful desktop application built with Tauri that tracks application usage, p
 - **Cloud Sync**: Seamless data synchronization across devices using Supabase
 - **Digital Wellness**: Track your digital habits and productivity patterns
 - **Live Dashboard**: Real-time usage statistics and productivity insights
+- **Timeline View**: Chronological, detailed view of all app usage events (no table view)
 - **Cross-Platform**: Native performance on Windows, macOS, and Linux
 - **User Authentication**: Secure login and session management
 - **Device Management**: Track usage across multiple devices with unique device IDs
 - **Data Management**: Clear usage data and manage your digital footprint
+- **Consistent App Names**: App names are now stored without file extensions for cross-platform consistency (e.g., 'chrome' instead of 'chrome.exe')
 
 ## 🛠 Technology Stack
 
