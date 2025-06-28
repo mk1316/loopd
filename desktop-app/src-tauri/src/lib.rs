@@ -4,12 +4,11 @@ pub mod database;
 
 use chrono::Local;
 use std::sync::Arc;
+use std::fs;
 use tauri::{Emitter, Manager};
 use crate::database::Database;
 use crate::usage::UsageTracker;
 use tokio::time::sleep;
-use std::fs;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Shared database handle stored in Tauri `State`.
