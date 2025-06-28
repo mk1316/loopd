@@ -36,7 +36,7 @@ function Dashboard() {
             </div>
             <div className="flex items-center gap-4">
               <UserProfile />
-              <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
+            <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
           </div>
           

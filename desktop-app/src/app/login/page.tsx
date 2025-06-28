@@ -2,12 +2,8 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { createClient } from '@/lib/supabaseClient';
 import { useUser } from '@/contexts/UserContext';
-
-const supabase = createClient();
+import CustomAuthForm from '@/components/CustomAuthForm';
 
 export default function LoginPage() {
   const { user, loading } = useUser();
@@ -38,31 +34,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex justify-center items-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome to Loopd</h1>
-          <p className="text-slate-300">Sign in to track your app usage</p>
-        </div>
-        <div className="bg-slate-800/50 rounded-lg p-6">
-          <Auth
-            supabaseClient={supabase}
-            appearance={{ 
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: '#3b82f6',
-                    brandAccent: '#2563eb',
-                  },
-                },
-              },
-            }}
-            providers={['google', 'github']}
-            theme="dark"
-            redirectTo={`${window.location.origin}/`}
-          />
-        </div>
-      </div>
+      <CustomAuthForm />
     </div>
   );
 }
