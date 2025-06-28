@@ -90,11 +90,11 @@ export default function Home() {
       unlisten = fn;
     });
 
-    // Also refresh every 5 seconds to catch any missed updates
+    // Also refresh every second to catch any missed updates
     const interval = setInterval(() => {
       fetchUsage();
       fetchCurrentApp();
-    }, 5000);
+    }, 1000);
 
     return () => {
       if (unlisten) unlisten();
