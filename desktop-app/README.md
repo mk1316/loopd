@@ -1,22 +1,22 @@
 # Loopd - Cross-Platform Productivity App
 
-A powerful desktop application built with Tauri that tracks application usage, blocks distracting apps, and syncs data across devices in real-time.
+A powerful desktop application built with Tauri that tracks application usage, provides digital wellness insights, and syncs data across devices in real-time.
 
 ## 🚀 Features
 
 - **Real-time App Tracking**: Monitors active applications and window titles across Windows, macOS, and Linux
 - **Cloud Sync**: Seamless data synchronization across devices using Supabase
-- **App Blocking**: Block distracting applications with customizable overlay screens
-- **Emergency Override**: Temporary access to blocked apps when needed
+- **Digital Wellness**: Track your digital habits and productivity patterns
 - **Live Dashboard**: Real-time usage statistics and productivity insights
 - **Cross-Platform**: Native performance on Windows, macOS, and Linux
 - **User Authentication**: Secure login and session management
 - **Device Management**: Track usage across multiple devices with unique device IDs
+- **Data Management**: Clear usage data and manage your digital footprint
 
 ## 🛠 Technology Stack
 
 ### Backend
-- **Rust** with Tauri 2.0 for cross-platform desktop functionality
+- **Rust** with Tauri 2.6 for cross-platform desktop functionality
 - **SQLite** for local data storage with SQLx
 - **Platform-specific APIs** for app detection:
   - Windows: Win32 API
@@ -40,7 +40,7 @@ A powerful desktop application built with Tauri that tracks application usage, b
 ### Prerequisites
 
 - **Node.js 18+** and npm
-- **Rust toolchain** (rustc, cargo)
+- **Rust toolchain** (rustc, cargo) - version 1.77.2 or higher
 - **Platform-specific development tools**:
   - **Windows**: Visual Studio Build Tools
   - **macOS**: Xcode Command Line Tools
@@ -118,19 +118,24 @@ loopd/
 ├── src/                    # Next.js frontend
 │   ├── app/               # App router pages
 │   ├── components/        # Reusable UI components
-│   └── lib/               # Utility functions and Supabase client
+│   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utility functions and Supabase client
+│   └── types/             # TypeScript type definitions
 ├── src-tauri/             # Rust backend
 │   ├── src/
 │   │   ├── lib.rs         # Main application logic
 │   │   ├── usage.rs       # Usage tracking implementation
 │   │   ├── database.rs    # Database operations
 │   │   └── main.rs        # Entry point
+│   ├── migrations/        # Database migrations
 │   └── Cargo.toml         # Rust dependencies
 ├── docs/                  # Project documentation
 │   ├── prd.md            # Product Requirements Document
 │   ├── architecture.md   # Technical architecture
 │   ├── roadmap.md        # Development roadmap
-│   └── setup-guide.md    # Detailed setup instructions
+│   ├── setup-guide.md    # Detailed setup instructions
+│   ├── storage-architecture.md # Database and storage design
+│   └── development-priorities.md # Current development focus
 └── public/               # Static assets
 ```
 
@@ -140,6 +145,8 @@ loopd/
 - `npm run tauri build` - Build for production
 - `npm run dev` - Start Next.js dev server only
 - `npm run build` - Build Next.js frontend only
+- `npm run export` - Export static files for Tauri
+- `npm run lint` - Run ESLint
 
 ### Environment Variables
 
@@ -157,6 +164,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - **[Development Roadmap](docs/roadmap.md)** - Current development status and future plans
 - **[Setup Guide](docs/setup-guide.md)** - Detailed installation and configuration
 - **[Storage Architecture](docs/storage-architecture.md)** - Database and storage design
+- **[Development Priorities](docs/development-priorities.md)** - Current development focus areas
 
 ## 🤝 Contributing
 
@@ -183,6 +191,8 @@ See [development-priorities.md](docs/development-priorities.md) for current deve
 - ✅ User authentication
 - ✅ Real-time data sync
 - ✅ Modern React frontend
+- ✅ Device ID persistence
+- ✅ Usage data management
 
 ### Upcoming Features
 - 🔄 App blocking with overlay screens
@@ -191,8 +201,23 @@ See [development-priorities.md](docs/development-priorities.md) for current deve
 - 🔄 Customizable tracking intervals
 - 🔄 Data export capabilities
 - 🔄 Advanced productivity insights
+- 🔄 Focus mode and productivity scoring
 
 See [roadmap.md](docs/roadmap.md) for detailed development plans.
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Build fails with export error**: Make sure you have the latest version of Next.js and the export script is properly configured
+2. **Tauri dev server not starting**: Check that all Rust dependencies are installed and the toolchain is up to date
+3. **App tracking not working**: Verify platform-specific dependencies are installed for your OS
+
+### Platform-Specific Setup
+
+- **Windows**: Install Visual Studio Build Tools with C++ workload
+- **macOS**: Install Xcode Command Line Tools: `xcode-select --install`
+- **Linux**: Install build essentials: `sudo apt-get install build-essential`
 
 ## 📄 License
 
@@ -200,10 +225,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- [Tauri](https://tauri.app/) for the excellent cross-platform framework
-- [Supabase](https://supabase.com/) for the powerful backend-as-a-service
-- [Next.js](https://nextjs.org/) for the React framework
-- [Tailwind CSS](https://tailwindcss.com/) for the utility-first CSS framework
+- Built with [Tauri](https://tauri.app/) for cross-platform desktop development
+- Powered by [Next.js](https://nextjs.org/) for the frontend framework
+- Data storage and sync with [Supabase](https://supabase.com/)
+- Icons from [Lucide React](https://lucide.dev/)
 
 ---
 

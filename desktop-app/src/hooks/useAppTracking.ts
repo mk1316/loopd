@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { UsageSummary } from '@/types';
-import { REFRESH_INTERVAL, ERROR_MESSAGES } from '@/lib/constants';
+import { REFRESH_INTERVAL } from '@/lib/constants';
 import { getCurrentTimeString } from '@/lib/timeUtils';
 import { logError } from '@/lib/errorHandling';
 

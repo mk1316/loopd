@@ -1,5 +1,6 @@
 export const APP_CONSTANTS = {
-  TITLE: 'Loopd - App Usage Tracker',
+  TITLE: 'Loopd',
+  DESCRIPTION: 'Digital Wellness',
   CURRENTLY_ACTIVE: 'Currently Active',
   DEVICE_ID: 'Device ID',
   USAGE_DATA: 'Usage Data',

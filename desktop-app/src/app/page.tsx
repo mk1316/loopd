@@ -26,10 +26,10 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div className="flex flex-col">
               <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">
-                Loopd
+                {APP_CONSTANTS.TITLE}
               </h1>
               <p className="text-lg md:text-xl text-slate-300 font-medium">
-                Digital Wellness
+                {APP_CONSTANTS.DESCRIPTION}
               </p>
             </div>
             <ClearDataButton onClear={clearAllData} isClearing={isClearing} />

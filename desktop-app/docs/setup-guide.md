@@ -8,13 +8,13 @@ Before you begin, ensure you have the following installed:
 
 ### Required Software
 - **Node.js 18+** and npm
-- **Rust toolchain** (rustc, cargo) - [Install Rust](https://rustup.rs/)
+- **Rust toolchain** (rustc, cargo) - version 1.77.2 or higher - [Install Rust](https://rustup.rs/)
 - **Git** for version control
 
 ### Platform-Specific Requirements
 
 #### Windows
-- **Visual Studio Build Tools** or **Visual Studio Community**
+- **Visual Studio Build Tools** or **Visual Studio Community** with C++ workload
 - **Windows 10/11** (recommended)
 
 #### macOS
@@ -33,6 +33,10 @@ Before you begin, ensure you have the following installed:
 - **X11 development libraries** (for app detection):
   ```bash
   sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+  ```
+- **WebKit dependencies** (for Tauri):
+  ```bash
+  sudo apt install libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
   ```
 
 ## 🛠 Installation Steps
@@ -114,17 +118,20 @@ This command will:
 
 ### ✅ Implemented Features
 - **Real-time app tracking** across Windows, macOS, and Linux
-- **Local SQLite storage** for usage data
+- **Local SQLite storage** for usage data with automatic migrations
 - **Live dashboard** showing current active app and usage history
 - **Device identification** with persistent device IDs
 - **Data management** (clear all data functionality)
-- **Cross-platform compatibility**
+- **Cross-platform compatibility** with native performance
+- **Modern UI** with Tailwind CSS and responsive design
+- **Real-time updates** via Tauri events
 
 ### 🔄 In Development
 - **Supabase integration** for cloud sync
 - **User authentication** system
 - **App blocking** functionality
 - **Emergency override** system
+- **Advanced analytics** and reporting
 
 ## 🧪 Testing the Application
 
@@ -135,6 +142,7 @@ This command will:
 3. **Observe real-time updates** in the dashboard
 4. **Check device ID** - should persist across restarts
 5. **Test data clearing** - use the "Clear All Data" button
+6. **Verify usage tracking** - check the usage data section
 
 ### Platform-Specific Testing
 
@@ -142,16 +150,19 @@ This command will:
 - Test with various Windows applications
 - Verify window title detection
 - Check process name accuracy
+- Test with UWP apps and traditional Win32 apps
 
 #### macOS
 - Test with native macOS apps
 - Verify app switching detection
 - Check permissions (accessibility if needed)
+- Test with different window managers
 
 #### Linux
 - Test with X11 applications
 - Verify window manager compatibility
 - Check for Wayland support (if applicable)
+- Test with different desktop environments
 
 ## 🔧 Development Commands
 
@@ -160,6 +171,7 @@ This command will:
 npm run tauri dev          # Start development server
 npm run dev               # Start Next.js only
 npm run build             # Build Next.js frontend
+npm run export            # Export static files for Tauri
 
 # Building
 npm run tauri build       # Build for production
@@ -171,6 +183,7 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu # Linux
 npm run lint              # Run ESLint
 cargo check               # Check Rust code
 cargo test                # Run Rust tests
+cargo clippy              # Run Rust linter
 ```
 
 ## 🐛 Troubleshooting
@@ -185,13 +198,21 @@ cargo clean
 npm run tauri dev
 ```
 
+#### Export Command Issues
+If you encounter issues with the export command:
+1. Ensure Next.js 15+ is installed
+2. Check that `next.config.ts` has `output: 'export'` configured
+3. Verify the export script is in `package.json`
+
 #### Permission Issues (macOS)
 - Go to System Preferences → Security & Privacy → Privacy
 - Add your terminal/IDE to Accessibility permissions
+- For app tracking, grant accessibility permissions to the app
 
 #### Windows Build Issues
-- Ensure Visual Studio Build Tools are installed
+- Ensure Visual Studio Build Tools are installed with C++ workload
 - Run `rustup default stable` to ensure stable Rust
+- Check that Windows SDK is properly installed
 
 #### Linux Dependencies
 ```bash
@@ -199,70 +220,55 @@ npm run tauri dev
 sudo apt install libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
 # Fedora
-sudo dnf install webkit2gtk3-devel gtk3-devel libappindicator-gtk3-dev librsvg2-devel
+sudo dnf install webkit2gtk3-devel gtk3-devel libappindicator-gtk3-devel librsvg2-devel
+
+# Arch Linux
+sudo pacman -S webkit2gtk gtk3 libappindicator-gtk3 librsvg
 ```
 
-### Debug Mode
-
-Enable debug logging by setting the `RUST_LOG` environment variable:
-
+#### Tauri Dev Server Issues
 ```bash
-# Windows
-set RUST_LOG=debug
+# Reset Tauri cache
+rm -rf src-tauri/target
 npm run tauri dev
-
-# macOS/Linux
-RUST_LOG=debug npm run tauri dev
 ```
 
-## 📦 Production Build
+### Performance Optimization
 
-### Building for Distribution
+#### For Development
+- Use `npm run dev` for faster frontend development
+- Use `cargo check` for quick Rust syntax checking
+- Enable Rust incremental compilation in `Cargo.toml`
 
-```bash
-# Build for current platform
-npm run tauri build
+#### For Production
+- Optimize bundle size with Next.js build analysis
+- Use release builds for Rust: `cargo build --release`
+- Enable Rust optimizations in `Cargo.toml`
 
-# Build for specific platforms
-npm run tauri build -- --target x86_64-pc-windows-msvc
-npm run tauri build -- --target x86_64-apple-darwin
-npm run tauri build -- --target x86_64-unknown-linux-gnu
-```
+## 📚 Additional Resources
 
-### Distribution Files
+- **[Architecture Guide](architecture.md)** - Technical architecture overview
+- **[Development Priorities](development-priorities.md)** - Current development focus
+- **[Roadmap](roadmap.md)** - Future development plans
+- **[Storage Architecture](storage-architecture.md)** - Database design details
 
-Built applications will be available in:
-- **Windows**: `src-tauri/target/release/bundle/msi/`
-- **macOS**: `src-tauri/target/release/bundle/dmg/`
-- **Linux**: `src-tauri/target/release/bundle/appimage/`
-
-## 🔄 Next Steps
-
-After successful setup:
-
-1. **Explore the codebase**:
-   - `src-tauri/src/usage.rs` - App tracking logic
-   - `src-tauri/src/database.rs` - Database operations
-   - `src/app/page.tsx` - Main dashboard
-
-2. **Review documentation**:
-   - [Product Requirements Document](prd.md)
-   - [Architecture Guide](architecture.md)
-   - [Development Roadmap](roadmap.md)
-
-3. **Contribute to development**:
-   - Check [development priorities](development-priorities.md)
-   - Review open issues
-   - Submit pull requests
-
-## 📞 Support
+## 🤝 Getting Help
 
 If you encounter issues:
 
 1. **Check the troubleshooting section** above
-2. **Review the logs** with `RUST_LOG=debug`
-3. **Search existing issues** in the repository
-4. **Create a new issue** with detailed information
+2. **Review the documentation** in the `docs/` directory
+3. **Check GitHub issues** for known problems
+4. **Create a new issue** with detailed error information
+
+### Debug Information
+
+When reporting issues, include:
+- Operating system and version
+- Node.js and npm versions
+- Rust toolchain version
+- Error messages and stack traces
+- Steps to reproduce the issue
 
 ---
 
