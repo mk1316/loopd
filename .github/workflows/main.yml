@@ -82,5 +82,5 @@ jobs:
             ### 📦 Downloads
             Choose the appropriate installer for your platform below.
           releaseDraft: true
-          prerelease: false
+          prerelease: true
           args: ${{ matrix.args }}
