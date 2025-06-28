@@ -75,6 +75,7 @@ fn main() {
             app_lib::database::get_usage_summary_command,
             app_lib::database::get_usage_summary_for_period_command,
             app_lib::database::get_current_session_command,
+            app_lib::database::get_sessions_command,
             app_lib::database::clear_all_data_command,
             app_lib::database::clear_all_data_and_reset_command,
             app_lib::database::get_app_device_id,

@@ -7,7 +7,8 @@ import {
   UsageDataDisplay, 
   ClearDataButton,
   ProtectedRoute,
-  UserProfile
+  UserProfile,
+  Navigation
 } from '@/components';
 import { APP_CONSTANTS } from '@/lib/constants';
 
@@ -39,6 +40,8 @@ function Dashboard() {
             <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
           </div>
+          
+          <Navigation />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <CurrentAppDisplay currentApp={currentApp} lastUpdate={lastUpdate} />
