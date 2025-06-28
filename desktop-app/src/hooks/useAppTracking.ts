@@ -6,6 +6,13 @@ import { REFRESH_INTERVAL } from '@/lib/constants';
 import { getCurrentTimeString } from '@/lib/timeUtils';
 import { logError } from '@/lib/errorHandling';
 
+// TypeScript declaration for Tauri global
+declare global {
+  interface Window {
+    __TAURI__?: any;
+  }
+}
+
 export function useAppTracking() {
   const [usage, setUsage] = useState<UsageSummary[]>([]);
   const [currentApp, setCurrentApp] = useState<string>('Unknown');
@@ -51,13 +58,25 @@ export function useAppTracking() {
     
     if (!confirmed) return;
     
+    console.log('clearAllData: Starting clear operation...');
+    console.log('clearAllData: invoke function available:', typeof invoke);
+    console.log('clearAllData: window.__TAURI__ available:', !!window.__TAURI__);
+    
     setIsClearing(true);
     try {
-      await invoke('clear_all_data_and_reset_command');
-      console.log('All data cleared and tracking reset successfully');
+      console.log('clearAllData: Calling invoke...');
+      
+      // Try the command without arguments first
+      const result = await invoke('clear_all_data_and_reset_command');
+      console.log('clearAllData: Command result:', result);
+      
+      console.log('clearAllData: All data cleared and tracking reset successfully');
       setUsage([]);
       setLastUpdate(getCurrentTimeString());
     } catch (e) {
+      console.error('clearAllData: Error occurred:', e);
+      console.error('clearAllData: Error type:', typeof e);
+      console.error('clearAllData: Error message:', e instanceof Error ? e.message : String(e));
       logError(e, 'clearAllData');
       alert('Failed to clear data. Please try again.');
     } finally {

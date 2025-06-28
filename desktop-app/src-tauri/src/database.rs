@@ -429,16 +429,21 @@ pub async fn clear_all_data_command(
 pub async fn clear_all_data_and_reset_command(
     db: State<'_, Db>,
 ) -> Result<(), String> {
+    println!("[CMD] clear_all_data_and_reset_command called");
+    
     // First clear all data
+    println!("[CMD] Clearing all data...");
     db.clear_all_data()
         .await
         .map_err(|e| e.to_string())?;
     
     // Then reset the tracking system
+    println!("[CMD] Resetting tracking system...");
     crate::reset_tracking(&db)
         .await
         .map_err(|e| e.to_string())?;
     
+    println!("[CMD] clear_all_data_and_reset_command completed successfully");
     Ok(())
 }
 

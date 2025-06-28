@@ -66,6 +66,13 @@ fn main() {
                 start_tracking(db.clone(), app.handle().clone());
             });
 
+            // Open devtools in debug mode
+            #[cfg(debug_assertions)]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                window.open_devtools();
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -79,7 +86,14 @@ fn main() {
             app_lib::database::clear_all_data_command,
             app_lib::database::clear_all_data_and_reset_command,
             app_lib::database::get_app_device_id,
+            test_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+async fn test_command() -> Result<String, String> {
+    println!("[CMD] test_command called");
+    Ok("Test command works!".to_string())
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useAppTracking } from '@/hooks/useAppTracking';
 import { 
   CurrentAppDisplay, 
@@ -8,6 +9,7 @@ import {
   ClearDataButton 
 } from '@/components';
 import { APP_CONSTANTS } from '@/lib/constants';
+import { listen } from '@tauri-apps/api/event';
 
 export default function Home() {
   const {
@@ -18,6 +20,46 @@ export default function Home() {
     isClearing,
     clearAllData,
   } = useAppTracking();
+
+  useEffect(() => {
+    // Add global click handler to debug
+    const handleGlobalClick = (event: MouseEvent) => {
+      console.log('Global click detected:', event.target);
+      console.log('Click coordinates:', event.clientX, event.clientY);
+    };
+
+    // Add Tauri event listener test
+    const setupTauriEvents = async () => {
+      try {
+        console.log('Setting up Tauri event listener...');
+        const unlisten = await listen('test-event', (event) => {
+          console.log('Tauri event received:', event);
+        });
+        console.log('Tauri event listener set up successfully');
+        
+        // Test emit after 2 seconds
+        setTimeout(async () => {
+          try {
+            console.log('Testing Tauri event emit...');
+            const { emit } = await import('@tauri-apps/api/event');
+            await emit('test-event', { message: 'Hello from frontend!' });
+            console.log('Tauri event emit test completed');
+          } catch (error) {
+            console.error('Tauri event emit test failed:', error);
+          }
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to set up Tauri event listener:', error);
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick);
+    setupTauriEvents();
+    
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 md:p-8">

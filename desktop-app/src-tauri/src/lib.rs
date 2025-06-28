@@ -35,7 +35,7 @@ pub fn get_or_create_device_id(app_handle: &tauri::AppHandle) -> String {
     }
 }
 
-// Reset tracking system - clears current tracker and creates new device
+// Reset tracking system - clears current tracker and resets the existing device
 pub async fn reset_tracking(db: &Db) -> Result<String, Box<dyn std::error::Error>> {
     println!("[TRACKER] Resetting tracking system...");
     
@@ -45,11 +45,18 @@ pub async fn reset_tracking(db: &Db) -> Result<String, Box<dyn std::error::Error
         *tracker_guard = None;
     }
     
-    // Create a new device
-    let device_id = db.initialize_device("Desktop App".to_string(), "Windows".to_string()).await?;
-    println!("[TRACKER] Created new device: {}", device_id);
+    // Get the first device (should be the persistent one)
+    let device = db.get_first_device().await?;
+    let device_id = if let Some(device) = device {
+        println!("[TRACKER] Using existing device: {}", device.id);
+        device.id
+    } else {
+        // Fallback: create a new device if none exists
+        println!("[TRACKER] No device found, creating new one");
+        db.initialize_device("Desktop App".to_string(), "macOS".to_string()).await?
+    };
     
-    // Create and store the new usage tracker
+    // Create and store the new usage tracker with the existing device ID
     {
         let mut tracker_guard = usage::USAGE_TRACKER.lock().unwrap();
         *tracker_guard = Some(UsageTracker::new(device_id.clone()));
@@ -71,7 +78,7 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
         println!("[TRACKER] Using persistent device ID: {}", device_id);
 
         // Initialize device in database with the persistent ID
-        match db.initialize_device_with_id(device_id.clone(), "Desktop App".to_string(), "Windows".to_string()).await {
+        match db.initialize_device_with_id(device_id.clone(), "Desktop App".to_string(), "macOS".to_string()).await {
             Ok(_) => println!("[TRACKER] Device initialized in database"),
             Err(e) => {
                 println!("[TRACKER] Failed to initialize device: {}", e);
