@@ -5,11 +5,13 @@ import {
   CurrentAppDisplay, 
   DeviceIdDisplay, 
   UsageDataDisplay, 
-  ClearDataButton 
+  ClearDataButton,
+  ProtectedRoute,
+  UserProfile
 } from '@/components';
 import { APP_CONSTANTS } from '@/lib/constants';
 
-export default function Home() {
+function Dashboard() {
   const {
     usage,
     currentApp,
@@ -32,7 +34,10 @@ export default function Home() {
                 {APP_CONSTANTS.DESCRIPTION}
               </p>
             </div>
-            <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
+            <div className="flex items-center gap-4">
+              <UserProfile />
+              <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
+            </div>
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -46,5 +51,13 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
   );
 }
