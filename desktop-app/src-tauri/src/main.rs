@@ -71,6 +71,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             app_lib::usage::get_active_app,
             app_lib::usage::get_active_app_with_title,
+            app_lib::usage::check_accessibility_permissions_command,
             app_lib::database::get_usage_summary,
             app_lib::database::get_usage_summary_command,
             app_lib::database::get_usage_summary_for_period_command,

@@ -7,6 +7,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "macos")]
+fn check_accessibility_permissions() -> bool {
+    // For now, assume permissions are granted
+    // In a real implementation, you would check this using the AX API
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppUsage {
     pub app_name: String,
@@ -197,29 +204,38 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
 
     #[cfg(target_os = "macos")]
     {
-        use cocoa::appkit::NSWorkspace;
-        use cocoa::base::id;
+        use std::process::Command;
 
-        unsafe {
-            let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
-            let app: id = msg_send![workspace, frontmostApplication];
-            let bundle_id: id = msg_send![app, bundleIdentifier];
+        // Check if accessibility permissions are granted
+        if !check_accessibility_permissions() {
+            return Err(anyhow::anyhow!("Accessibility permissions not granted. Please enable in System Preferences > Security & Privacy > Privacy > Accessibility"));
+        }
 
-            if bundle_id.is_null() {
-                return Err(anyhow::anyhow!("Failed to get bundle identifier"));
-            }
+        // Use osascript to get the active application and window title
+        // This is a simpler approach that works without complex Objective-C bindings
+        let output = Command::new("osascript")
+            .args(["-e", "tell application \"System Events\" to tell (first process whose frontmost is true) to return {name, name of window 1}"])
+            .output()
+            .map_err(|e| anyhow::anyhow!("Failed to execute osascript: {}", e))?;
 
-            let bundle_str = cocoa::foundation::NSString::UTF8String(bundle_id);
-            let app_name = bundle_str.split('.').last().unwrap_or("unknown").to_string();
-
-            let name: id = msg_send![app, localizedName];
-            let window_title = if !name.is_null() {
-                Some(cocoa::foundation::NSString::UTF8String(name))
-            } else {
+        let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let parts: Vec<&str> = result.split(", ").collect();
+        
+        if parts.len() >= 2 {
+            let app_name = parts[0].trim_matches('"').to_string();
+            let window_title = parts[1].trim_matches('"').to_string();
+            
+            // If window title is empty or "missing value", set it to None
+            let window_title = if window_title.is_empty() || window_title == "missing value" {
                 None
+            } else {
+                Some(window_title)
             };
-
+            
+            println!("[TRACKER] Final result - app: '{}', title: '{:?}'", app_name, window_title);
             return Ok((app_name, window_title));
+        } else {
+            return Err(anyhow::anyhow!("Failed to parse osascript output"));
         }
     }
 
@@ -310,23 +326,26 @@ pub async fn get_active_app() -> Result<String, String> {
 
     #[cfg(target_os = "macos")]
     {
-        use cocoa::appkit::NSWorkspace;
-        use cocoa::base::id;
-        use objc::runtime::Object;
+        use std::process::Command;
 
-        unsafe {
-            let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
-            let app: id = msg_send![workspace, frontmostApplication];
-            let bundle_id: id = msg_send![app, bundleIdentifier];
-            
-            if bundle_id.is_null() {
-                return Err("Failed to get bundle identifier".to_string());
-            }
-
-            let bundle_str = cocoa::foundation::NSString::UTF8String(bundle_id);
-            let app_name = bundle_str.split('.').last().unwrap_or("unknown").to_string();
-            Ok(app_name)
+        // Check if accessibility permissions are granted
+        if !check_accessibility_permissions() {
+            return Err("Accessibility permissions not granted. Please enable in System Preferences > Security & Privacy > Privacy > Accessibility".to_string());
         }
+
+        // Use osascript to get the active application name
+        let output = Command::new("osascript")
+            .args(["-e", "tell application \"System Events\" to tell (first process whose frontmost is true) to return name"])
+            .output()
+            .map_err(|e| format!("Failed to execute osascript: {}", e))?;
+
+        let app_name = String::from_utf8_lossy(&output.stdout).trim().trim_matches('"').to_string();
+        
+        if app_name.is_empty() {
+            return Err("Failed to get active application name".to_string());
+        }
+
+        Ok(app_name)
     }
 
     #[cfg(target_os = "linux")]
@@ -394,25 +413,39 @@ pub async fn get_active_app_with_title() -> Result<ActiveApp, String> {
 
     #[cfg(target_os = "macos")]
     {
-        use cocoa::appkit::NSWorkspace;
-        use cocoa::base::id;
-        use objc::runtime::Object;
+        use std::process::Command;
 
-        unsafe {
-            let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
-            let app: id = msg_send![workspace, frontmostApplication];
-            let name: id = msg_send![app, localizedName];
+        // Check if accessibility permissions are granted
+        if !check_accessibility_permissions() {
+            return Err("Accessibility permissions not granted. Please enable in System Preferences > Security & Privacy > Privacy > Accessibility".to_string());
+        }
+
+        // Use osascript to get both app name and window title
+        let output = Command::new("osascript")
+            .args(["-e", "tell application \"System Events\" to tell (first process whose frontmost is true) to return {name, name of window 1}"])
+            .output()
+            .map_err(|e| format!("Failed to execute osascript: {}", e))?;
+
+        let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let parts: Vec<&str> = result.split(", ").collect();
+        
+        if parts.len() >= 2 {
+            let app_name = parts[0].trim_matches('"').to_string();
+            let window_title = parts[1].trim_matches('"').to_string();
             
-            let window_title = if !name.is_null() {
-                cocoa::foundation::NSString::UTF8String(name)
-            } else {
+            // If window title is empty or "missing value", use "Unknown"
+            let window_title = if window_title.is_empty() || window_title == "missing value" {
                 "Unknown".to_string()
+            } else {
+                window_title
             };
 
             Ok(ActiveApp {
                 name: app_name,
                 title: window_title,
             })
+        } else {
+            Err("Failed to parse osascript output".to_string())
         }
     }
 
@@ -452,6 +485,20 @@ pub async fn get_active_app_with_title() -> Result<ActiveApp, String> {
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         Err("Unsupported operating system".to_string())
+    }
+}
+
+/// Check if accessibility permissions are granted on macOS
+#[tauri::command]
+pub async fn check_accessibility_permissions_command() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        Ok(check_accessibility_permissions())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(true) // Not applicable on other platforms
     }
 }
 

@@ -2077,6 +2077,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "cocoa",
+ "core-foundation 0.9.4",
  "log",
  "objc",
  "once_cell",
