@@ -1,205 +1,321 @@
-I'll analyze your codebase to understand the current architecture and then explain how the app usage tracking and blocking system will work with real-time sync.
+# 🗺️ Loopd Development Roadmap
 
-Read file: docs/prd.md
-Read file: docs/architecture.md
-Read file: src-tauri/src/main.rs
-Read file: src-tauri/src/lib.rs
-Ran tool
-Read file: src-tauri/src/usage.rs
-Read file: src/lib/supabase.ts
-Read file: src/app/page.tsx
-Read file: package.json
-Based on my analysis of your codebase and the provided documentation, here's a comprehensive explanation of how the **loopd** app usage tracking and blocking system will work with real-time sync:
+## 📊 **Current Status Overview**
 
-## High-Level Architecture Overview
+**Loopd** is a cross-platform productivity app that tracks application usage and will provide app blocking capabilities with cloud synchronization. The project has successfully completed its core tracking functionality and is now moving into the cloud integration phase.
 
-**loopd** is a cross-platform productivity app built with **Tauri (Rust backend)** + **Next.js (React frontend)** + **Supabase (cloud backend)** that tracks app usage, blocks distracting apps, and syncs data across devices in real-time.
+---
 
-## 1. App Usage Tracking System
+## ✅ **Completed Milestones**
 
-### Backend Tracking (Rust/Tauri)
-The Rust backend will continuously monitor active applications using OS-specific APIs:
+### **Phase 0: Foundation (Completed)**
+- ✅ **Cross-platform app detection** (Windows, macOS, Linux)
+- ✅ **Real-time usage tracking** with background monitoring
+- ✅ **Local SQLite storage** with efficient data management
+- ✅ **Modern React frontend** with real-time updates
+- ✅ **Device identification** system
+- ✅ **Basic data management** (clear all data functionality)
 
-- **Windows**: Uses `GetForegroundWindow()` and `GetWindowText()` to detect active windows
-- **macOS**: Uses `NSWorkspace` to get the active application
-- **Linux**: Uses X11 APIs to detect active windows
+### **Phase 1: Core Features (Completed)**
+- ✅ **Tauri backend** with OS-specific APIs
+- ✅ **Event-driven architecture** for real-time updates
+- ✅ **Cross-platform compatibility** testing
+- ✅ **Performance optimization** for background tracking
 
-The tracking works by:
-1. **Polling every 1-2 seconds** to check which app is currently active
-2. **Buffering usage data locally** to minimize network calls
-3. **Emitting real-time events** to the frontend via Tauri's event system
-4. **Syncing to Supabase** periodically (every 30-60 seconds) to avoid excessive API calls
+---
 
-### Data Structure
+## 🚀 **Current Development Phase**
+
+### **Phase 2: Cloud Integration (In Progress)**
+
+**Timeline**: December 2024 - January 2025
+
+#### **2.1 Authentication System**
+- 🔄 **Supabase Auth integration**
+  - User registration and login
+  - Session management
+  - Protected routes
+- 🔄 **User profile management**
+  - Account settings
+  - Device linking
+  - Privacy controls
+
+#### **2.2 Database Schema & Sync**
+- 🔄 **Supabase database setup**
+  - App usage logs table
+  - User preferences table
+  - Device management table
+- 🔄 **Real-time synchronization**
+  - Local to cloud data sync
+  - Cross-device data sharing
+  - Offline support
+
+#### **2.3 Enhanced Dashboard**
+- 🔄 **User-specific data display**
+  - Personalized usage insights
+  - Multi-device aggregation
+  - Historical data analysis
+
+---
+
+## 📅 **Upcoming Phases**
+
+### **Phase 3: App Blocking System (Q1 2025)**
+
+**Timeline**: January - February 2025
+
+#### **3.1 Blocking Detection**
+- 📋 **Blocked apps management**
+  - Add/remove apps from block list
+  - Category-based blocking
+  - Time-based blocking schedules
+- 📋 **Process monitoring**
+  - Real-time blocked app detection
+  - Process termination capabilities
+  - Override system implementation
+
+#### **3.2 Blocking UI**
+- 📋 **Fullscreen overlay system**
+  - Tauri window management
+  - Blocking interface design
+  - Emergency override options
+- 📋 **User interaction handling**
+  - Close app functionality
+  - Override logging
+  - Blocking analytics
+
+### **Phase 4: Advanced Features (Q2 2025)**
+
+**Timeline**: March - April 2025
+
+#### **4.1 Analytics & Insights**
+- 📋 **Advanced usage analytics**
+  - Productivity scoring
+  - Usage pattern analysis
+  - Goal setting and tracking
+- 📋 **Data visualization**
+  - Interactive charts and graphs
+  - Customizable dashboards
+  - Export capabilities
+
+#### **4.2 Smart Features**
+- 📋 **AI-powered insights**
+  - Usage pattern recognition
+  - Productivity recommendations
+  - Automated blocking suggestions
+- 📋 **Integration capabilities**
+  - Calendar integration
+  - Productivity tool connections
+  - API for third-party apps
+
+### **Phase 5: Polish & Scale (Q3 2025)**
+
+**Timeline**: May - June 2025
+
+#### **5.1 Performance & Security**
+- 📋 **Performance optimization**
+  - Memory usage optimization
+  - Database query optimization
+  - Caching strategies
+- 📋 **Security hardening**
+  - Data encryption
+  - Security audit
+  - Privacy compliance
+
+#### **5.2 User Experience**
+- 📋 **UI/UX improvements**
+  - Accessibility enhancements
+  - Mobile-responsive design
+  - Customizable themes
+- 📋 **Documentation & Support**
+  - User guides
+  - API documentation
+  - Troubleshooting guides
+
+---
+
+## 🎯 **Feature Roadmap Details**
+
+### **App Blocking System**
+
+#### **Core Blocking Features**
 ```rust
-// Local usage tracking
-struct AppUsage {
+// Planned implementation in src-tauri/src/block.rs
+pub struct BlockingSystem {
+    blocked_apps: Vec<String>,
+    override_list: HashMap<String, DateTime<Utc>>,
+    blocking_schedules: Vec<BlockingSchedule>,
+}
+
+pub struct BlockingSchedule {
     app_name: String,
-    start_time: DateTime,
-    duration_seconds: u64,
-    user_id: String,
+    start_time: Time,
+    end_time: Time,
+    days_of_week: Vec<Weekday>,
 }
 ```
 
-## 2. Real-Time Sync with Supabase
+#### **Blocking UI Components**
+```typescript
+// Planned React components
+- BlockingOverlay: Fullscreen blocking interface
+- BlockedAppsManager: Add/remove blocked apps
+- OverrideHistory: Track override usage
+- BlockingSchedules: Time-based blocking rules
+```
 
-### Database Schema
+### **Analytics & Insights**
+
+#### **Productivity Metrics**
+- **Focus Score**: Time spent in productive vs. distracting apps
+- **Productivity Trends**: Daily/weekly/monthly patterns
+- **Goal Tracking**: Progress towards productivity goals
+- **Distraction Analysis**: Most distracting apps and times
+
+#### **Data Visualization**
+- **Usage Heatmaps**: Visual representation of app usage patterns
+- **Productivity Charts**: Focus score over time
+- **App Category Analysis**: Group apps by productivity level
+- **Comparative Analytics**: Compare usage across devices/time periods
+
+---
+
+## 🔧 **Technical Implementation Plan**
+
+### **Database Evolution**
+
+#### **Current Schema (SQLite)**
 ```sql
--- App usage logs
-app_usage_logs (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  app_name TEXT NOT NULL,
-  duration_seconds INTEGER NOT NULL,
-  start_time TIMESTAMP WITH TIME ZONE,
-  device_id TEXT, -- To identify which device
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-)
-
--- Blocked apps per user
-blocked_apps (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  app_name TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-)
-
--- Emergency overrides
-overrides (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  app_name TEXT NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-)
+-- Local storage (implemented)
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    app_name TEXT NOT NULL,
+    window_title TEXT,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME,
+    duration_seconds INTEGER
+);
 ```
 
-### Real-Time Sync Implementation
-Using [Supabase Realtime](https://supabase.com/realtime), the system will:
+#### **Future Schema (Supabase)**
+```sql
+-- Cloud storage (planned)
+CREATE TABLE app_usage_logs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id),
+    app_name TEXT NOT NULL,
+    window_title TEXT,
+    duration_seconds INTEGER NOT NULL,
+    start_time TIMESTAMP WITH TIME ZONE,
+    device_id TEXT NOT NULL,
+    productivity_score INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-1. **Subscribe to database changes** for each user's data
-2. **Sync across devices** when usage data is updated
-3. **Update blocked app lists** in real-time across all user devices
-4. **Handle presence** to show which devices are currently active
+CREATE TABLE blocked_apps (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id),
+    app_name TEXT NOT NULL,
+    category TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-```typescript
-// Frontend real-time subscription
-const subscription = supabase
-  .channel('app-usage')
-  .on('postgres_changes', 
-    { event: '*', schema: 'public', table: 'app_usage_logs' },
-    (payload) => {
-      // Update local state with new usage data
-      updateUsageData(payload.new);
-    }
-  )
-  .subscribe();
+CREATE TABLE blocking_schedules (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id),
+    app_name TEXT NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    days_of_week INTEGER[], -- 0=Sunday, 1=Monday, etc.
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
 
-## 3. App Blocking System
+### **API Evolution**
 
-### Detection & Blocking Flow
-1. **Rust backend continuously monitors** active applications
-2. **Checks against blocked apps list** (synced from Supabase)
-3. **Validates override status** (temporary permissions)
-4. **Triggers blocking UI** when blocked app is detected
-
-### Blocking Implementation
+#### **Current Tauri Commands**
 ```rust
-// In block.rs
-#[tauri::command]
-pub fn check_blocked_app(app_name: &str) -> bool {
-    // Check if app is in blocked list
-    // Check if override exists and is valid
-    // Return true if should be blocked
-}
-
-#[tauri::command]
-pub fn kill_process(app_name: &str) {
-    // OS-specific process termination
-    // Windows: taskkill /F /IM app_name
-    // macOS: killall app_name
-    // Linux: pkill app_name
-}
+// Implemented commands
+- get_active_app() -> String
+- get_usage_summary() -> Vec<UsageSummary>
+- get_app_device_id() -> String
+- clear_all_data_and_reset_command() -> ()
 ```
 
-### Blocking UI
-When a blocked app is detected:
-1. **Tauri spawns fullscreen overlay** or **React modal**
-2. **Shows blocking interface** with options:
-   - "Close App" (terminates the process)
-   - "Emergency Override" (temporary access)
-3. **Logs the action** to Supabase for analytics
-
-## 4. Frontend Display & User Management
-
-### Authentication Flow
-Using [Supabase Auth](https://supabase.com/docs/guides/auth):
-
-```typescript
-// Login component
-const { data: { user }, error } = await supabase.auth.signInWithPassword({
-  email: 'user@example.com',
-  password: 'password'
-});
-
-// Session management
-const { data: { session } } = await supabase.auth.getSession();
+#### **Planned Commands**
+```rust
+// Future commands
+- check_blocked_app(app_name: String) -> bool
+- kill_process(app_name: String) -> Result<(), String>
+- add_blocked_app(app_name: String) -> Result<(), String>
+- remove_blocked_app(app_name: String) -> Result<(), String>
+- sync_to_cloud() -> Result<(), String>
+- get_productivity_insights() -> ProductivityInsights
 ```
 
-### Real-Time Dashboard
-The frontend will display:
+---
 
-1. **Live usage statistics** with real-time updates
-2. **Current active app** with duration
-3. **Daily/weekly usage charts** using aggregated data
-4. **Blocked apps management** interface
-5. **Override history** and analytics
+## 📈 **Success Metrics & KPIs**
 
-### Cross-Device Sync
-- **Usage data syncs automatically** across all user devices
-- **Blocked apps list** updates in real-time
-- **Override permissions** sync across devices
-- **Presence indicators** show which devices are active
+### **Technical Metrics**
+- **App Detection Accuracy**: >99% across all platforms
+- **Sync Performance**: <5 seconds for cross-device updates
+- **Memory Usage**: <50MB for background tracking
+- **Battery Impact**: <5% additional drain on laptops
 
-## 5. Data Flow Architecture
+### **User Experience Metrics**
+- **User Retention**: >80% after 30 days
+- **Feature Adoption**: >60% use blocking features
+- **Productivity Improvement**: >20% increase in focus time
+- **User Satisfaction**: >4.5/5 rating
 
-```mermaid
-graph TD
-    A[OS Active App] --> B[Rust Backend]
-    B --> C[Local Buffer]
-    B --> D[Tauri Events]
-    D --> E[React Frontend]
-    C --> F[Supabase Sync]
-    F --> G[Database]
-    G --> H[Realtime Subscription]
-    H --> I[Other Devices]
-    I --> J[Local State Update]
-    
-    K[Blocked App Detected] --> L[Rust Block Check]
-    L --> M[Show Overlay]
-    M --> N[User Action]
-    N --> O[Update Database]
-    O --> P[Sync to All Devices]
-```
+### **Business Metrics**
+- **Active Users**: Target 10,000+ by end of 2025
+- **Platform Coverage**: 100% Windows, macOS, Linux support
+- **Data Privacy**: 100% compliance with GDPR/CCPA
+- **Performance**: 99.9% uptime for cloud services
 
-## 6. Security & Performance Considerations
+---
 
-### Security
-- **Row Level Security (RLS)** on Supabase tables
-- **User-specific data isolation**
-- **Secure session management** with Supabase Auth
-- **Local data encryption** for sensitive usage patterns
+## 🛠 **Development Resources**
 
-### Performance
-- **Local buffering** to minimize API calls
-- **Batch updates** to Supabase (every 30-60 seconds)
-- **Efficient polling** (1-2 second intervals)
-- **Real-time subscriptions** only for active users
+### **Required Skills**
+- **Rust**: Advanced knowledge for backend development
+- **React/TypeScript**: Frontend development and state management
+- **Supabase**: Database design and real-time features
+- **Cross-platform Development**: Windows, macOS, Linux APIs
 
-### Cross-Platform Compatibility
-- **Windows**: Native Win32 APIs for window detection
-- **macOS**: Accessibility permissions for app monitoring
-- **Linux**: X11 support with Wayland compatibility
+### **Tools & Infrastructure**
+- **Development**: VS Code, Rust Analyzer, TypeScript
+- **Testing**: Cross-platform testing environments
+- **CI/CD**: GitHub Actions for automated builds
+- **Monitoring**: Application performance monitoring
 
-This architecture ensures that users get real-time visibility into their app usage across all devices, with intelligent blocking that adapts to their productivity needs while maintaining data consistency and security.
+---
+
+## 🎉 **Long-term Vision**
+
+### **2025 Goals**
+- **Complete app blocking system** with advanced features
+- **Launch beta program** with 1,000+ users
+- **Achieve cross-platform stability** and performance
+- **Build community** of productivity enthusiasts
+
+### **2026 Vision**
+- **Mobile companion app** for iOS/Android
+- **Enterprise features** for team productivity
+- **API platform** for third-party integrations
+- **AI-powered insights** and recommendations
+
+### **2027+ Vision**
+- **Global expansion** with multi-language support
+- **Advanced analytics** with machine learning
+- **Ecosystem integration** with major productivity tools
+- **Open source contributions** to the productivity space
+
+---
+
+**Last Updated**: December 2024  
+**Next Review**: January 2025  
+**Status**: Active Development - Phase 2 (Cloud Integration) 

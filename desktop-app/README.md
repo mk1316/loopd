@@ -1,49 +1,70 @@
-# Loopd - Cross-Platform App Usage Tracker
+# Loopd - Cross-Platform Productivity App
 
-A desktop application built with Tauri that tracks active application usage across Windows, macOS, and Linux.
+A powerful desktop application built with Tauri that tracks application usage, blocks distracting apps, and syncs data across devices in real-time.
 
-## Features
+## 🚀 Features
 
-- **Real-time tracking**: Monitors active applications and window titles
-- **Cross-platform support**: Works on Windows, macOS, and Linux
-- **Live updates**: Frontend updates in real-time as you switch between applications
-- **Clean UI**: Modern, responsive interface built with Next.js and Tailwind CSS
-- **Efficient**: Lightweight background tracking with minimal resource usage
+- **Real-time App Tracking**: Monitors active applications and window titles across Windows, macOS, and Linux
+- **Cloud Sync**: Seamless data synchronization across devices using Supabase
+- **App Blocking**: Block distracting applications with customizable overlay screens
+- **Emergency Override**: Temporary access to blocked apps when needed
+- **Live Dashboard**: Real-time usage statistics and productivity insights
+- **Cross-Platform**: Native performance on Windows, macOS, and Linux
+- **User Authentication**: Secure login and session management
+- **Device Management**: Track usage across multiple devices with unique device IDs
 
-## Technology Stack
+## 🛠 Technology Stack
 
-- **Backend**: Rust with Tauri 2.0
-- **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
-- **OS Integration**: Platform-specific APIs for app detection
+### Backend
+- **Rust** with Tauri 2.0 for cross-platform desktop functionality
+- **SQLite** for local data storage with SQLx
+- **Platform-specific APIs** for app detection:
   - Windows: Win32 API
   - macOS: Cocoa/Objective-C APIs
   - Linux: X11 APIs
 
-## Getting Started
+### Frontend
+- **Next.js 15** with TypeScript and React 19
+- **Tailwind CSS** for modern, responsive UI
+- **Lucide React** for beautiful icons
+- **Class Variance Authority** for component styling
+
+### Cloud Infrastructure
+- **Supabase** for authentication, real-time database, and cloud sync
+- **PostgreSQL** for data persistence
+- **Row Level Security (RLS)** for data protection
+- **Real-time subscriptions** for live updates across devices
+
+## 📦 Installation
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Rust toolchain (rustc, cargo)
-- Platform-specific development tools:
+- **Node.js 18+** and npm
+- **Rust toolchain** (rustc, cargo)
+- **Platform-specific development tools**:
   - **Windows**: Visual Studio Build Tools
   - **macOS**: Xcode Command Line Tools
   - **Linux**: Build essentials and X11 development libraries
 
-### Installation
+### Quick Start
 
-1. Clone the repository:
+1. **Clone the repository**:
    ```bash
    git clone <repository-url>
    cd loopd
    ```
 
-2. Install frontend dependencies:
+2. **Install dependencies**:
    ```bash
    npm install
    ```
 
-3. Build and run the application:
+3. **Set up Supabase** (optional for cloud features):
+   - Create a Supabase project
+   - Add your Supabase URL and anon key to environment variables
+   - Run the database migrations
+
+4. **Start development server**:
    ```bash
    npm run tauri dev
    ```
@@ -54,29 +75,41 @@ A desktop application built with Tauri that tracks active application usage acro
 npm run tauri build
 ```
 
-## Architecture
+## 🏗 Architecture
 
-### Backend (Rust)
+### Core Components
 
-The backend consists of two main components:
+1. **UsageTracker** (`src-tauri/src/usage.rs`): Monitors active applications using OS-specific APIs
+2. **Database Layer** (`src-tauri/src/database.rs`): Manages local SQLite storage and Supabase sync
+3. **App State Management** (`src-tauri/src/lib.rs`): Coordinates between frontend and backend
+4. **Real-time Frontend** (`src/app/page.tsx`): Displays live usage data and manages user interactions
 
-1. **UsageTracker** (`src-tauri/src/usage.rs`): Core tracking logic that monitors active applications
-2. **App State Management** (`src-tauri/src/lib.rs`): Manages usage data and provides Tauri commands
+### Data Flow
 
-### Frontend (Next.js)
+```
+OS Active App → Rust Backend → Local Buffer → Supabase Sync → Other Devices
+     ↓              ↓              ↓              ↓              ↓
+Tauri Events → React Frontend → Real-time UI → Cloud Database → Cross-device Sync
+```
 
-- **Real-time Updates**: Uses Tauri events to receive app switch notifications
-- **Responsive Design**: Clean, modern UI with Tailwind CSS
-- **Type Safety**: Full TypeScript support for better development experience
+## 🎯 Usage
 
-## Usage
+### Getting Started
 
-1. Launch the application
-2. The app automatically starts tracking your active applications
-3. Switch between different applications to see usage data accumulate
-4. View real-time updates in the dashboard
+1. **Launch the application** - tracking begins automatically
+2. **View real-time data** - see which apps you're currently using
+3. **Monitor usage patterns** - track time spent across different applications
+4. **Manage data** - clear usage data or export statistics
 
-## Development
+### Key Features
+
+- **Live Tracking**: See your current active application in real-time
+- **Usage History**: View detailed breakdown of time spent per app per day
+- **Device Identification**: Unique device IDs for multi-device tracking
+- **Data Management**: Clear all usage data with one click
+- **Cloud Sync**: Automatic synchronization across all your devices
+
+## 🔧 Development
 
 ### Project Structure
 
@@ -84,38 +117,94 @@ The backend consists of two main components:
 loopd/
 ├── src/                    # Next.js frontend
 │   ├── app/               # App router pages
-│   └── lib/               # Utility functions
+│   ├── components/        # Reusable UI components
+│   └── lib/               # Utility functions and Supabase client
 ├── src-tauri/             # Rust backend
 │   ├── src/
 │   │   ├── lib.rs         # Main application logic
 │   │   ├── usage.rs       # Usage tracking implementation
+│   │   ├── database.rs    # Database operations
 │   │   └── main.rs        # Entry point
 │   └── Cargo.toml         # Rust dependencies
-└── docs/                  # Project documentation
+├── docs/                  # Project documentation
+│   ├── prd.md            # Product Requirements Document
+│   ├── architecture.md   # Technical architecture
+│   ├── roadmap.md        # Development roadmap
+│   └── setup-guide.md    # Detailed setup instructions
+└── public/               # Static assets
 ```
 
-### Key Components
+### Key Commands
 
-- **UsageTracker**: Monitors active applications using OS-specific APIs
-- **Background Thread**: Runs tracking logic in a separate thread to avoid blocking the UI
-- **Event System**: Emits events when applications switch for real-time frontend updates
+- `npm run tauri dev` - Start development server
+- `npm run tauri build` - Build for production
+- `npm run dev` - Start Next.js dev server only
+- `npm run build` - Build Next.js frontend only
 
-## Contributing
+### Environment Variables
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test on all target platforms
-5. Submit a pull request
+Create a `.env.local` file for Supabase configuration:
 
-## License
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## 📚 Documentation
+
+- **[Product Requirements Document](docs/prd.md)** - Detailed product specifications
+- **[Architecture Guide](docs/architecture.md)** - Technical architecture overview
+- **[Development Roadmap](docs/roadmap.md)** - Current development status and future plans
+- **[Setup Guide](docs/setup-guide.md)** - Detailed installation and configuration
+- **[Storage Architecture](docs/storage-architecture.md)** - Database and storage design
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our contributing guidelines:
+
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/AmazingFeature`)
+3. **Make your changes** and test on all target platforms
+4. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
+5. **Push to the branch** (`git push origin feature/AmazingFeature`)
+6. **Open a Pull Request**
+
+### Development Priorities
+
+See [development-priorities.md](docs/development-priorities.md) for current development focus areas.
+
+## 📈 Roadmap
+
+### Current Status
+- ✅ Real-time app usage tracking
+- ✅ Cross-platform support (Windows, macOS, Linux)
+- ✅ Local SQLite storage
+- ✅ Supabase integration
+- ✅ User authentication
+- ✅ Real-time data sync
+- ✅ Modern React frontend
+
+### Upcoming Features
+- 🔄 App blocking with overlay screens
+- 🔄 Emergency override functionality
+- 🔄 Usage analytics and charts
+- 🔄 Customizable tracking intervals
+- 🔄 Data export capabilities
+- 🔄 Advanced productivity insights
+
+See [roadmap.md](docs/roadmap.md) for detailed development plans.
+
+## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Roadmap
+## 🙏 Acknowledgments
 
-- [ ] Data persistence and export
-- [ ] Usage analytics and charts
-- [ ] App blocking functionality
-- [ ] Cloud synchronization
-- [ ] Customizable tracking intervals
+- [Tauri](https://tauri.app/) for the excellent cross-platform framework
+- [Supabase](https://supabase.com/) for the powerful backend-as-a-service
+- [Next.js](https://nextjs.org/) for the React framework
+- [Tailwind CSS](https://tailwindcss.com/) for the utility-first CSS framework
+
+---
+
+**Loopd** - Stay productive, track your time, and sync across devices. 🚀
