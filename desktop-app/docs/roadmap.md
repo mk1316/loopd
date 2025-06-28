@@ -203,32 +203,32 @@ CREATE TABLE sessions (
 -- Cloud storage (planned)
 CREATE TABLE app_usage_logs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id),
-    app_name TEXT NOT NULL,
+  user_id UUID REFERENCES auth.users(id),
+  app_name TEXT NOT NULL,
     window_title TEXT,
-    duration_seconds INTEGER NOT NULL,
-    start_time TIMESTAMP WITH TIME ZONE,
+  duration_seconds INTEGER NOT NULL,
+  start_time TIMESTAMP WITH TIME ZONE,
     device_id TEXT NOT NULL,
     productivity_score INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE blocked_apps (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id),
-    app_name TEXT NOT NULL,
+  user_id UUID REFERENCES auth.users(id),
+  app_name TEXT NOT NULL,
     category TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE blocking_schedules (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id),
-    app_name TEXT NOT NULL,
+  user_id UUID REFERENCES auth.users(id),
+  app_name TEXT NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     days_of_week INTEGER[], -- 0=Sunday, 1=Monday, etc.
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
