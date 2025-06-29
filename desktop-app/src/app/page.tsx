@@ -9,7 +9,8 @@ import {
   ClearDataButton,
   ProtectedRoute,
   UserProfile,
-  Navigation
+  Navigation,
+  SyncStatus
 } from '@/components';
 import { APP_CONSTANTS } from '@/lib/constants';
 import { listen } from '@tauri-apps/api/event';
@@ -78,6 +79,7 @@ function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <SyncStatus />
               <UserProfile />
             <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>

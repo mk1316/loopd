@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useAppTracking } from '@/hooks/useAppTracking';
-import { ProtectedRoute, UserProfile, ClearDataButton, Navigation, TimelineView, DaySelector } from '@/components';
+import { ProtectedRoute, UserProfile, ClearDataButton, Navigation, TimelineView, DaySelector, SyncStatus } from '@/components';
 
 function TimelinePage() {
   const {
@@ -42,6 +42,7 @@ function TimelinePage() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <SyncStatus />
               <UserProfile />
               <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
