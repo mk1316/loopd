@@ -53,8 +53,8 @@ fn main() {
                     .await
                     .expect("Failed to connect to SQLite database");
 
-                // Run runtime migrations (plugin will also run them, but running twice is idempotent)
-                let _ = sqlx::migrate!("./migrations").run(&pool).await;
+                // Note: tauri_plugin_sql handles migrations automatically
+                // No need for additional sqlx::migrate! call
 
                 // Wrap the Database in an Arc so it can be shared safely
                 let db = Arc::new(Database::new(pool));
@@ -90,6 +90,7 @@ fn main() {
             app_lib::database::sync_data_command,
             app_lib::database::get_unsynced_sessions_command,
             app_lib::database::test_supabase_connection_command,
+            app_lib::database::patch_open_sessions_with_end_time,
             test_command
         ])
         .run(tauri::generate_context!())

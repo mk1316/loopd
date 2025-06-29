@@ -21,6 +21,38 @@ export function useAppTracking() {
   const [deviceId, setDeviceId] = useState<string>('');
   const [isClearing, setIsClearing] = useState<boolean>(false);
 
+  // --- PATCH OPEN SESSIONS ON STARTUP ---
+  useEffect(() => {
+    // Only run once on mount
+    (async () => {
+      const lastActiveTime = localStorage.getItem('loopd_lastActiveTime');
+      if (lastActiveTime && deviceId) {
+        try {
+          // Call a backend command to patch open sessions for this device
+          await invoke('patch_open_sessions_with_end_time', {
+            deviceId,
+            endTime: lastActiveTime,
+          });
+        } catch (e) {
+          logError(e, 'patchOpenSessions');
+        }
+      }
+    })();
+  }, [deviceId]);
+
+  // --- UPDATE lastActiveTime EVERY 15s AND ON USER ACTIVITY ---
+  useEffect(() => {
+    const update = () => localStorage.setItem('loopd_lastActiveTime', new Date().toISOString());
+    const interval = setInterval(update, 15000);
+    window.addEventListener('mousemove', update);
+    window.addEventListener('keydown', update);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mousemove', update);
+      window.removeEventListener('keydown', update);
+    };
+  }, []);
+
   const fetchUsage = async () => {
     try {
       const data = await invoke<UsageSummary[]>('get_usage_summary');

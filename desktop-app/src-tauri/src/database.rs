@@ -519,6 +519,27 @@ impl Database {
             }
         }
     }
+
+    /// Patch all open sessions for a device by setting their end_time and duration_sec to the provided end_time
+    pub async fn patch_open_sessions_with_end_time(&self, device_id: &str, end_time: DateTime<Utc>) -> Result<(), sqlx::Error> {
+        // Get all open sessions for this device
+        let rows = sqlx::query("SELECT id, start_time FROM sessions WHERE device_id = ? AND end_time IS NULL")
+            .bind(device_id)
+            .fetch_all(&self.pool)
+            .await?;
+        for row in rows {
+            let id: String = row.get("id");
+            let start_time: DateTime<Utc> = row.get("start_time");
+            let duration_sec = (end_time - start_time).num_seconds();
+            sqlx::query("UPDATE sessions SET end_time = ?, duration_sec = ? WHERE id = ?")
+                .bind(end_time)
+                .bind(duration_sec)
+                .bind(&id)
+                .execute(&self.pool)
+                .await?;
+        }
+        Ok(())
+    }
 }
 
 // Tauri commands
@@ -651,4 +672,19 @@ pub async fn test_supabase_connection_command(
     supabase_client.test_connection()
         .await
         .map_err(|e| format!("Failed to test Supabase connection: {}", e))
+}
+
+#[tauri::command]
+pub async fn patch_open_sessions_with_end_time(
+    db: State<'_, Db>,
+    device_id: String,
+    end_time: String,
+) -> Result<(), String> {
+    // Parse end_time as RFC3339 string
+    let end_time = chrono::DateTime::parse_from_rfc3339(&end_time)
+        .map_err(|e| format!("Invalid end_time: {}", e))?
+        .with_timezone(&Utc);
+    db.patch_open_sessions_with_end_time(&device_id, end_time)
+        .await
+        .map_err(|e| format!("Failed to patch open sessions: {}", e))
 } 
