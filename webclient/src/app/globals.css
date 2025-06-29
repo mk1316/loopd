@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 27% 18%;
+    --foreground: 0 0% 98%;
+    --card: 220 27% 15%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 27% 15%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 27% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 27% 20%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 220 27% 20%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 27% 20%;
+    --input: 220 27% 20%;
+    --ring: 239 84% 67%;
+    --radius: 0.75rem;
+    --font-inter: 'Inter', sans-serif;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: #1e293b;
+    background-attachment: fixed;
+    min-height: 100vh;
+    font-family: var(--font-inter);
+  }
+}
+
+@layer components {
+  .card-dark {
+    background: #1a2332;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(51, 65, 85, 0.3);
+  }
+
+  .sidebar-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(51, 65, 85, 0.3);
+  }
+
+  .glass-effect {
+    background: #1a2332;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(51, 65, 85, 0.2);
+  }
+
+  .gradient-button {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  }
+
+  .gradient-button:hover {
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #9333ea 100%);
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+    to {
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+    }
+  }
+
+  .chart-gradient {
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.05) 100%);
+  }
+}
