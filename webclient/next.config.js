@@ -1,7 +1,4 @@
 const nextConfig = {
-  experimental: {
-    // appDir: true, // Removed as it's not needed in Next.js 14+
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -9,9 +6,11 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ["placeholder.svg"],
     unoptimized: true,
   },
+  // New stable configuration options for Next.js 15
+  bundlePagesRouterDependencies: true,
+  serverExternalPackages: [],
 }
 
 module.exports = nextConfig

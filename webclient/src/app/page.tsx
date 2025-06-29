@@ -41,6 +41,8 @@ import BillingPage from "@/components/billing-page"
 import CommunityPage from "@/components/community-page"
 import TimelinePage from "@/components/timeline-page"
 import AppDetailsModal from "@/components/app-details-modal"
+import { createClient } from "@/lib/supabase/client"
+import { logout } from "./logout/actions"
 
 // Mock data for demonstration
 const usageData = [
@@ -106,6 +108,18 @@ export default function LoopDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [selectedApp, setSelectedApp] = useState<any>(null)
   const [isAppModalOpen, setIsAppModalOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      setLoading(false)
+    }
+    fetchUser()
+  }, [])
 
   useEffect(() => {
     // Animate progress bars on load
@@ -166,6 +180,22 @@ export default function LoopDashboard() {
   const handleAppClick = (activity: any) => {
     setSelectedApp(activity)
     setIsAppModalOpen(true)
+  }
+
+  const handleLogout = async () => {
+    await logout()
+  }
+
+  const getUserInitials = (email: string) => {
+    return email.split('@')[0].substring(0, 2).toUpperCase()
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    )
   }
 
   const renderContent = () => {
@@ -434,7 +464,7 @@ export default function LoopDashboard() {
               <div className="animate-slide-up">
                 <h1 className="text-xl font-bold text-white">{activeView}</h1>
                 <p className="text-sm text-gray-400">
-                  Welcome back, Alex • {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  Welcome back, {user?.email?.split('@')[0] || 'User'} • {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -454,15 +484,19 @@ export default function LoopDashboard() {
                     >
                       <Avatar className="h-10 w-10 ring-2 ring-indigo-400/50">
                         <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
-                        <AvatarFallback className="gradient-button text-white font-bold">AK</AvatarFallback>
+                        <AvatarFallback className="gradient-button text-white font-bold">
+                          {user?.email ? getUserInitials(user.email) : 'U'}
+                        </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 glass-effect border-white/20" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal text-white">
                       <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">Alex Kim</p>
-                        <p className="text-xs leading-none text-gray-400">alex@example.com</p>
+                        <p className="text-sm font-medium leading-none">
+                          {user?.email?.split('@')[0] || 'User'}
+                        </p>
+                        <p className="text-xs leading-none text-gray-400">{user?.email || 'user@example.com'}</p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-white/20" />
@@ -479,7 +513,10 @@ export default function LoopDashboard() {
                       Billing
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-white/20" />
-                    <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-white/10 transition-colors">
+                    <DropdownMenuItem
+                      className="text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                      onClick={handleLogout}
+                    >
                       Log out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
