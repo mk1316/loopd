@@ -15,43 +15,42 @@ export async function updateSession(request: NextRequest) {
                     return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-                    supabaseResponse = NextResponse.next({
-                        request,
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        // Set secure cookie options
+                        const secureOptions = {
+                            ...options,
+                            httpOnly: true,
+                            secure: process.env.NODE_ENV === 'production',
+                            sameSite: 'lax' as const,
+                            maxAge: 60 * 60 * 24 * 7, // 7 days
+                        }
+                        supabaseResponse.cookies.set(name, value, secureOptions)
                     })
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        supabaseResponse.cookies.set(name, value, options)
-                    )
                 },
             },
         }
     )
 
-    // IMPORTANT: Avoid writing any logic between createServerClient and
-    // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-    // issues with users being randomly logged out.
+    try {
+        // Refresh session if expired
+        const { data: { session }, error } = await supabase.auth.getSession()
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
+        if (error) {
+            console.error('Middleware session error:', error)
+        }
 
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth')
-    ) {
-        // no user, potentially respond by redirecting the user to the login page
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
+        // Add security headers
+        supabaseResponse.headers.set('X-Frame-Options', 'DENY')
+        supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')
+        supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+        if (process.env.NODE_ENV === 'production') {
+            supabaseResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+        }
+
+        return supabaseResponse
+    } catch (error) {
+        console.error('Middleware error:', error)
+        return supabaseResponse
     }
-
-    if (user && request.nextUrl.pathname.startsWith('/login')) {
-        // user is signed in, potentially respond by redirecting the user to the dashboard
-        const url = request.nextUrl.clone()
-        url.pathname = '/'
-        return NextResponse.redirect(url)
-    }
-
-    return supabaseResponse
 } 

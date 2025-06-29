@@ -1,17 +1,20 @@
-"use client";
+'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useUser } from '@/contexts/UserContext';
-import CustomAuthForm from '@/components/CustomAuthForm';
 
-export default function LoginPage() {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user) {
-      router.push('/');
+    if (!loading && !user) {
+      router.push('/login');
     }
   }, [user, loading, router]);
 
@@ -27,14 +30,10 @@ export default function LoginPage() {
     );
   }
 
-  // Don't show login if user is already authenticated
-  if (user) {
+  // Don't render children if user is not authenticated
+  if (!user) {
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex justify-center items-center p-4">
-      <CustomAuthForm />
-    </div>
-  );
+  return <>{children}</>;
 } 
