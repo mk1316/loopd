@@ -1,36 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Loopd Digital Wellness Dashboard
+
+A comprehensive digital wellness platform built with Next.js, React, and TypeScript. Track your screen time, set goals, manage app blocking, and improve your digital habits.
+
+## Features
+
+- 📊 **Dashboard**: Overview of daily screen time, active blocks, goals, and focus score
+- 🎯 **Goals**: Set and track digital wellness goals with progress monitoring
+- ⚡ **Insights**: AI-powered insights and recommendations for better digital habits
+- 🕐 **Timeline**: Visual timeline of your daily app usage patterns
+- 👥 **Community**: Achievement system with badges, streaks, and leaderboards
+- 🛡️ **Block Lists**: Create and manage website/app blocking rules
+- 📱 **Devices**: Multi-device management and monitoring
+- ⚙️ **Settings**: Comprehensive settings for notifications, blocking, appearance, and privacy
+- 👤 **Profile**: User profile management and customization
+- 💳 **Billing**: Subscription management and billing history
+
+## Tech Stack
+
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI primitives
+- **Charts**: Recharts
+- **Icons**: Lucide React
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
+- Node.js 18.0 or later
+- npm or yarn package manager
+
+### Installation
+
+1. Clone the repository:
+\`\`\`bash
+git clone <repository-url>
+cd loopd-digital-wellness
+\`\`\`
+
+2. Install dependencies:
+\`\`\`bash
+npm install
+# or
+yarn install
+\`\`\`
+
+3. Run the development server:
+\`\`\`bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+\`\`\`bash
+npm run build
+npm start
+\`\`\`
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+\`\`\`
+loopd-digital-wellness/
+├── app/                    # Next.js app directory
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Main dashboard page
+├── components/            # React components
+│   ├── ui/               # Reusable UI components
+│   ├── app-details-modal.tsx
+│   ├── billing-page.tsx
+│   ├── block-lists-page.tsx
+│   ├── blocker-screen.tsx
+│   ├── community-page.tsx
+│   ├── devices-page.tsx
+│   ├── goal-management.tsx
+│   ├── goals-page.tsx
+│   ├── insights-page.tsx
+│   ├── profile-settings-page.tsx
+│   ├── settings-page.tsx
+│   └── timeline-page.tsx
+├── lib/                   # Utility functions and types
+│   ├── types.ts          # TypeScript type definitions
+│   └── utils.ts          # Helper functions
+├── public/               # Static assets
+├── package.json          # Dependencies and scripts
+├── tailwind.config.ts    # Tailwind CSS configuration
+├── tsconfig.json         # TypeScript configuration
+└── next.config.js        # Next.js configuration
+\`\`\`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Available Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript type checking
 
-## Deploy on Vercel
+## Features Overview
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Dashboard
+- Real-time screen time tracking
+- Active blocking status
+- Goal progress monitoring
+- Focus score calculation
+- Recent app activity
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Goals Management
+- Create custom digital wellness goals
+- Track progress with visual indicators
+- Set deadlines and priorities
+- Goal categories and templates
+
+### Timeline
+- Hourly breakdown of app usage
+- Visual timeline with color-coded intensity
+- Filter by apps, categories, and devices
+- Usage pattern analysis
+
+### Community
+- Achievement system with rarity levels
+- Streak tracking and maintenance
+- Global leaderboards
+- Challenge participation
+
+### Block Lists
+- Custom website and app blocking
+- Scheduled blocking rules
+- Device-specific configurations
+- Import/export functionality
+
+## Customization
+
+The project uses a dark navy theme with purple accents. Colors can be customized in:
+- `app/globals.css` - CSS custom properties
+- `tailwind.config.ts` - Tailwind theme configuration
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.

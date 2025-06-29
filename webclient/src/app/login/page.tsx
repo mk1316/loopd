@@ -2,9 +2,9 @@
 
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { createClient } from '@/lib/supabaseClient';
+import { createSupabaseClient } from '@/lib/supabaseClient';
 
-const supabase = createClient();
+const supabase = createSupabaseClient();
 
 export default function LoginPage() {
   return (
