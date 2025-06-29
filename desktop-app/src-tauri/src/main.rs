@@ -87,6 +87,9 @@ fn main() {
             app_lib::database::clear_all_data_command,
             app_lib::database::clear_all_data_and_reset_command,
             app_lib::database::get_app_device_id,
+            app_lib::database::sync_data_command,
+            app_lib::database::get_unsynced_sessions_command,
+            app_lib::database::test_supabase_connection_command,
             test_command
         ])
         .run(tauri::generate_context!())

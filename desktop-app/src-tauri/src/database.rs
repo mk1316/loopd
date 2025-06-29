@@ -375,6 +375,150 @@ impl Database {
         println!("[DB] All usage data cleared successfully (device ID preserved)");
         Ok(())
     }
+
+    // Sync-related methods
+    pub async fn get_unsynced_sessions(&self, device_id: &str) -> Result<Vec<Session>, sqlx::Error> {
+        println!("[DB] Getting unsynced sessions for device: {}", device_id);
+        
+        let rows = sqlx::query(
+            "SELECT id, device_id, user_id, app_name, window_title, start_time, end_time, duration_sec, created_at 
+             FROM sessions 
+             WHERE device_id = ? AND synced = 0 AND duration_sec IS NOT NULL 
+             ORDER BY start_time ASC"
+        )
+        .bind(device_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut sessions = Vec::new();
+        for row in rows {
+            sessions.push(Session {
+                id: row.get("id"),
+                device_id: row.get("device_id"),
+                user_id: row.get("user_id"),
+                app_name: row.get("app_name"),
+                window_title: row.get("window_title"),
+                start_time: row.get("start_time"),
+                end_time: row.get("end_time"),
+                duration_sec: row.get("duration_sec"),
+                created_at: row.get("created_at"),
+            });
+        }
+
+        println!("[DB] Found {} unsynced sessions", sessions.len());
+        Ok(sessions)
+    }
+
+    pub async fn mark_sessions_synced(&self, session_ids: Vec<String>) -> Result<(), sqlx::Error> {
+        if session_ids.is_empty() {
+            return Ok(());
+        }
+
+        println!("[DB] Marking {} sessions as synced", session_ids.len());
+        
+        // Create placeholders for the IN clause
+        let placeholders: String = session_ids.iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
+        
+        let query = format!("UPDATE sessions SET synced = 1 WHERE id IN ({})", placeholders);
+        
+        let mut query_builder = sqlx::query(&query);
+        for id in &session_ids {
+            query_builder = query_builder.bind(id);
+        }
+        
+        query_builder.execute(&self.pool).await?;
+        println!("[DB] Successfully marked {} sessions as synced", session_ids.len());
+        Ok(())
+    }
+
+    pub async fn sync_to_supabase(&self, device_id: &str, user_id: &str, supabase_url: &str, supabase_key: &str, access_token: &str) -> Result<(), Box<dyn std::error::Error>> {
+        println!("[DB] Starting sync to Supabase for device: {}, user: {}", device_id, user_id);
+        
+        // Get unsynced sessions
+        let unsynced_sessions = self.get_unsynced_sessions(device_id).await?;
+        
+        if unsynced_sessions.is_empty() {
+            println!("[DB] No unsynced sessions to sync");
+            return Ok(());
+        }
+
+        // Create Supabase client and upload sessions
+        let mut supabase_client = crate::supabase::SupabaseClient::new(
+            supabase_url.to_string(),
+            supabase_key.to_string(),
+        );
+        
+        // Set the user's access token for authenticated requests
+        supabase_client.set_user_token(access_token.to_string());
+
+        // Get session IDs to check for existing records
+        let session_ids: Vec<String> = unsynced_sessions.iter()
+            .map(|s| s.id.clone())
+            .collect();
+        
+        // Check which sessions already exist in Supabase
+        let existing_ids = match supabase_client.check_existing_sessions(session_ids.clone()).await {
+            Ok(ids) => ids,
+            Err(e) => {
+                println!("[DB] Failed to check existing sessions: {}", e);
+                // If we can't check, assume none exist and proceed
+                vec![]
+            }
+        };
+        
+        // Filter out sessions that already exist
+        let new_sessions: Vec<&Session> = unsynced_sessions.iter()
+            .filter(|s| !existing_ids.contains(&s.id))
+            .collect();
+            
+        if new_sessions.is_empty() {
+            println!("[DB] All sessions already exist in Supabase, marking as synced");
+            // Mark all sessions as synced since they already exist
+            self.mark_sessions_synced(session_ids).await?;
+            return Ok(());
+        }
+        
+        let new_sessions_count = new_sessions.len();
+        println!("[DB] Found {} new sessions to sync ({} already exist)", 
+                new_sessions_count, existing_ids.len());
+
+        // Convert local sessions to Supabase format (only new ones)
+        let mut supabase_sessions = Vec::new();
+        for session in &new_sessions {
+            let supabase_session = crate::supabase::SupabaseSession {
+                id: session.id.clone(),
+                device_id: session.device_id.clone(),
+                user_id: user_id.to_string(),
+                app_name: session.app_name.clone(),
+                window_title: Some(session.window_title.clone()),
+                duration_seconds: session.duration_sec.unwrap_or(0),
+                start_time: session.start_time.to_rfc3339(),
+                created_at: session.created_at.to_rfc3339(),
+            };
+            supabase_sessions.push(supabase_session);
+        }
+
+        match supabase_client.upload_sessions(supabase_sessions).await {
+            Ok(_) => {
+                println!("[DB] Successfully uploaded {} sessions to Supabase", new_sessions_count);
+                
+                // Mark ALL sessions as synced (both existing and new ones)
+                // This includes the 168 existing sessions + 4 new sessions = 172 total
+                let total_synced = session_ids.len();
+                self.mark_sessions_synced(session_ids).await?;
+                
+                println!("[DB] Sync completed successfully - marked {} total sessions as synced", total_synced);
+                Ok(())
+            }
+            Err(e) => {
+                println!("[DB] Failed to upload sessions to Supabase: {}", e);
+                Err(e.into())
+            }
+        }
+    }
 }
 
 // Tauri commands
@@ -461,4 +605,50 @@ pub async fn get_sessions_command(
     db.get_sessions(&device_id, limit)
         .await
         .map_err(|e| format!("Failed to get sessions: {}", e))
+}
+
+// New sync-related commands
+#[tauri::command]
+pub async fn sync_data_command(
+    db: State<'_, Db>,
+    device_id: String,
+    user_id: String,
+    supabase_url: String,
+    supabase_key: String,
+    access_token: String,
+) -> Result<(), String> {
+    println!("[CMD] sync_data_command called for device: {}, user: {}", device_id, user_id);
+    
+    db.sync_to_supabase(&device_id, &user_id, &supabase_url, &supabase_key, &access_token)
+        .await
+        .map_err(|e| format!("Failed to sync data: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_unsynced_sessions_command(
+    db: State<'_, Db>,
+    device_id: String,
+) -> Result<Vec<Session>, String> {
+    println!("[CMD] get_unsynced_sessions_command called for device: {}", device_id);
+    
+    db.get_unsynced_sessions(&device_id)
+        .await
+        .map_err(|e| format!("Failed to get unsynced sessions: {}", e))
+}
+
+#[tauri::command]
+pub async fn test_supabase_connection_command(
+    supabase_url: String,
+    supabase_key: String,
+) -> Result<(), String> {
+    println!("[CMD] test_supabase_connection_command called");
+    
+    let supabase_client = crate::supabase::SupabaseClient::new(
+        supabase_url,
+        supabase_key,
+    );
+    
+    supabase_client.test_connection()
+        .await
+        .map_err(|e| format!("Failed to test Supabase connection: {}", e))
 } 

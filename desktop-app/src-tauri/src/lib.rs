@@ -1,6 +1,7 @@
 // Imports
 pub mod usage;
 pub mod database;
+pub mod supabase;
 
 use chrono::Local;
 use std::sync::Arc;

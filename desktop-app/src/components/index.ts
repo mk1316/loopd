@@ -6,4 +6,5 @@ export { ProtectedRoute } from './ProtectedRoute';
 export { UserProfile } from './UserProfile';
 export { TimelineView } from './TimelineView';
 export { Navigation } from './Navigation';
-export { DaySelector } from './DaySelector'; 
+export { DaySelector } from './DaySelector';
+export { SyncStatus } from './SyncStatus'; 

@@ -9,6 +9,7 @@ interface UserContextType {
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  triggerSync: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -18,6 +19,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+
+  // Function to trigger sync (will be called from useSync hook)
+  const triggerSync = async () => {
+    // This will be implemented by the useSync hook
+    console.log('Sync triggered from UserContext');
+  };
 
   useEffect(() => {
     // Get initial session
@@ -36,6 +43,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Trigger sync when user logs in
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('User signed in, sync will be triggered');
+          // The useSync hook will handle the actual sync
+        }
       }
     );
 
@@ -51,6 +64,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signOut,
+    triggerSync,
   };
 
   return (
