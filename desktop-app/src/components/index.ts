@@ -3,4 +3,7 @@ export { DeviceIdDisplay } from './DeviceIdDisplay';
 export { UsageDataDisplay } from './UsageDataDisplay';
 export { ClearDataButton } from './ClearDataButton'; 
 export { ProtectedRoute } from './ProtectedRoute';
-export { UserProfile } from './UserProfile'; 
+export { UserProfile } from './UserProfile';
+export { TimelineView } from './TimelineView';
+export { Navigation } from './Navigation';
+export { DaySelector } from './DaySelector'; 

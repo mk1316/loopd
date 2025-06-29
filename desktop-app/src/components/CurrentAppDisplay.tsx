@@ -13,11 +13,9 @@ export function CurrentAppDisplay({ currentApp, lastUpdate }: CurrentAppDisplayP
       <p className="app-name text-2xl font-mono mb-3">{currentApp}</p>
       {lastUpdate && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-green-400/70">
-            {APP_CONSTANTS.LAST_UPDATED}
-          </span>
-          <span className="time-display text-sm font-mono">
-            {lastUpdate}
+          <span className="text-sm text-green-400/70">Last updated:</span>
+          <span className="text-sm text-green-300 font-mono">
+            {new Date(lastUpdate).toLocaleTimeString()}
           </span>
         </div>
       )}

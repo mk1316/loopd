@@ -465,4 +465,5 @@ By avoiding browser local storage and implementing a robust Rust-based local sto
 - [Please Stop Using Local Storage](https://dev.to/rdegges/please-stop-using-local-storage-1i04) - Security concerns with browser local storage
 - [Supabase Realtime Documentation](https://supabase.com/realtime) - Real-time synchronization features
 - [Tauri Security Best Practices](https://tauri.app/v1/api/js/) - Secure frontend-backend communication
-- [Next.js Authentication Guide](https://nextjs.org/docs/14/app/building-your-application/authentication) - Session management best practices 
+- [Next.js Authentication Guide](https://nextjs.org/docs/14/app/building-your-application/authentication) - Session management best practices
+- App names are now normalized and stored without file extensions for cross-platform consistency (e.g., 'chrome' instead of 'chrome.exe'). 

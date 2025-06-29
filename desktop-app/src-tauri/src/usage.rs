@@ -14,6 +14,16 @@ fn check_accessibility_permissions() -> bool {
     true
 }
 
+/// Strips the file extension from an app name for cross-platform compatibility
+fn strip_app_extension(app_name: &str) -> String {
+    if let Some(last_dot) = app_name.rfind('.') {
+        if last_dot > 0 {
+            return app_name[..last_dot].to_string();
+        }
+    }
+    app_name.to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppUsage {
     pub app_name: String,
@@ -186,7 +196,7 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
             }
 
             let path = String::from_utf8_lossy(&filename[..len as usize]);
-            let app_name = path.split('\\').last().unwrap_or("unknown").to_string();
+            let app_name = strip_app_extension(&path.split('\\').last().unwrap_or("unknown").to_string());
 
             // Get window title
             let mut title_buf = [0u8; 512];
@@ -258,12 +268,12 @@ fn get_active_app_info() -> Result<(String, Option<String>)> {
         let output_class = Command::new("xprop")
             .args(["-id", window_id, "WM_CLASS"])
             .output()?;
-        let app_name = String::from_utf8_lossy(&output_class.stdout)
+        let app_name = strip_app_extension(&String::from_utf8_lossy(&output_class.stdout)
             .trim()
             .split('"')
             .nth(1)
             .unwrap_or("unknown")
-            .to_string();
+            .to_string());
 
         // WM_NAME gives window title
         let output_title = Command::new("xprop")
@@ -319,7 +329,7 @@ pub async fn get_active_app() -> Result<String, String> {
             }
 
             let path = String::from_utf8_lossy(&filename[..len as usize]);
-            let app_name = path.split('\\').last().unwrap_or("unknown").to_string();
+            let app_name = strip_app_extension(&path.split('\\').last().unwrap_or("unknown").to_string());
             Ok(app_name)
         }
     }
@@ -368,12 +378,12 @@ pub async fn get_active_app() -> Result<String, String> {
             .output()
             .map_err(|e| format!("Failed to get window class: {}", e))?;
 
-        let class = String::from_utf8_lossy(&output.stdout)
+        let class = strip_app_extension(&String::from_utf8_lossy(&output.stdout)
             .trim()
             .split('"')
             .nth(1)
             .unwrap_or("unknown")
-            .to_string();
+            .to_string());
 
         Ok(class)
     }

@@ -120,11 +120,13 @@ This command will:
 - **Real-time app tracking** across Windows, macOS, and Linux
 - **Local SQLite storage** for usage data with automatic migrations
 - **Live dashboard** showing current active app and usage history
+- **Timeline view** for chronological app usage history (no table view)
 - **Device identification** with persistent device IDs
 - **Data management** (clear all data functionality)
 - **Cross-platform compatibility** with native performance
 - **Modern UI** with Tailwind CSS and responsive design
 - **Real-time updates** via Tauri events
+- **Consistent app names**: App names are stored without file extensions for cross-platform consistency
 
 ### 🔄 In Development
 - **Supabase integration** for cloud sync

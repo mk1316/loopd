@@ -178,6 +178,8 @@ pub struct BlockingSchedule {
 - **App Category Analysis**: Group apps by productivity level
 - **Comparative Analytics**: Compare usage across devices/time periods
 
+Note: App names are now normalized (no file extension, cross-platform consistent).
+
 ---
 
 ## 🔧 **Technical Implementation Plan**

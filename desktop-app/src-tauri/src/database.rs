@@ -450,4 +450,15 @@ pub async fn clear_all_data_and_reset_command(
 #[tauri::command]
 pub fn get_app_device_id(app_handle: tauri::AppHandle) -> String {
     crate::get_or_create_device_id(&app_handle)
+}
+
+#[tauri::command]
+pub async fn get_sessions_command(
+    db: State<'_, Db>,
+    device_id: String,
+    limit: Option<i64>,
+) -> Result<Vec<Session>, String> {
+    db.get_sessions(&device_id, limit)
+        .await
+        .map_err(|e| format!("Failed to get sessions: {}", e))
 } 
