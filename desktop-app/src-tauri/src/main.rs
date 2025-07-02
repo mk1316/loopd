@@ -10,12 +10,20 @@ use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 
 fn main() {
     // Define SQL migrations for the plugin
-    let migrations = vec![Migration {
-        version: 1,
-        description: "create_initial_tables",
-        sql: include_str!("../migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "create_initial_tables",
+            sql: include_str!("../migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "create_block_rules_tables",
+            sql: include_str!("../migrations/0002_block_rules.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     let tauri_builder = tauri::Builder::default()
         .plugin(
@@ -91,6 +99,13 @@ fn main() {
             app_lib::database::get_unsynced_sessions_command,
             app_lib::database::test_supabase_connection_command,
             app_lib::database::patch_open_sessions_with_end_time,
+            app_lib::blocking::create_block_rule_command,
+            app_lib::blocking::get_block_rules_command,
+            app_lib::blocking::update_block_rule_command,
+            app_lib::blocking::delete_block_rule_command,
+            app_lib::blocking::evaluate_block_status_command,
+            app_lib::blocking::record_block_override_command,
+            app_lib::blocking::get_block_overrides_command,
             test_command
         ])
         .run(tauri::generate_context!())

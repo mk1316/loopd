@@ -2,6 +2,7 @@
 pub mod usage;
 pub mod database;
 pub mod supabase;
+pub mod blocking;
 
 use chrono::Local;
 use std::sync::Arc;

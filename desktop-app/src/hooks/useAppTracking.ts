@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { UsageSummary, Session } from '@/types';
+import { UsageSummary, Session, BlockRule, BlockStatus } from '@/types';
 import { REFRESH_INTERVAL } from '@/lib/constants';
 import { getCurrentTimeString } from '@/lib/timeUtils';
 import { logError } from '@/lib/errorHandling';
@@ -20,6 +20,9 @@ export function useAppTracking() {
   const [lastUpdate, setLastUpdate] = useState<string>('');
   const [deviceId, setDeviceId] = useState<string>('');
   const [isClearing, setIsClearing] = useState<boolean>(false);
+  const [blockRules, setBlockRules] = useState<BlockRule[]>([]);
+  const [currentBlockStatus, setCurrentBlockStatus] = useState<BlockStatus | null>(null);
+  const [isBlockingEnabled] = useState<boolean>(true);
 
   // --- PATCH OPEN SESSIONS ON STARTUP ---
   useEffect(() => {
@@ -97,6 +100,34 @@ export function useAppTracking() {
     }
   };
 
+  const fetchBlockRules = async () => {
+    if (!deviceId) return;
+    try {
+      const rules = await invoke<BlockRule[]>('get_block_rules_command', { deviceId });
+      setBlockRules(rules);
+    } catch (e) {
+      logError(e, 'fetchBlockRules');
+      setBlockRules([]);
+    }
+  };
+
+  const evaluateBlockStatus = async () => {
+    if (!deviceId || !currentApp || !isBlockingEnabled) {
+      setCurrentBlockStatus(null);
+      return;
+    }
+    try {
+      const status = await invoke<BlockStatus>('evaluate_block_status_command', {
+        deviceId,
+        appName: currentApp,
+      });
+      setCurrentBlockStatus(status);
+    } catch (e) {
+      logError(e, 'evaluateBlockStatus');
+      setCurrentBlockStatus(null);
+    }
+  };
+
   const clearAllData = async () => {
     const confirmed = window.confirm(
       'Are you sure you want to clear all usage data? This action cannot be undone.'
@@ -160,8 +191,14 @@ export function useAppTracking() {
   useEffect(() => {
     if (deviceId) {
       fetchSessions();
+      fetchBlockRules();
     }
   }, [deviceId]);
+
+  // Evaluate block status when currentApp or blockRules change
+  useEffect(() => {
+    evaluateBlockStatus();
+  }, [currentApp, blockRules, isBlockingEnabled]);
 
   return {
     usage,
@@ -170,10 +207,15 @@ export function useAppTracking() {
     lastUpdate,
     deviceId,
     isClearing,
+    blockRules,
+    currentBlockStatus,
+    isBlockingEnabled,
     fetchUsage,
     fetchSessions,
     fetchCurrentApp,
     fetchDeviceId,
+    fetchBlockRules,
+    evaluateBlockStatus,
     clearAllData,
   };
 } 

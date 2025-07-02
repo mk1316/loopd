@@ -7,4 +7,6 @@ export { UserProfile } from './UserProfile';
 export { TimelineView } from './TimelineView';
 export { Navigation } from './Navigation';
 export { DaySelector } from './DaySelector';
-export { SyncStatus } from './SyncStatus'; 
+export { SyncStatus } from './SyncStatus';
+export { BlockScreen } from './BlockScreen';
+export { BlockRulesManager } from './BlockRulesManager'; 

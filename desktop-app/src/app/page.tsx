@@ -12,6 +12,8 @@ import {
   Navigation,
   SyncStatus
 } from '@/components';
+import { BlockScreen } from '@/components/BlockScreen';
+import { BlockRulesManager } from '@/components/BlockRulesManager';
 import { APP_CONSTANTS } from '@/lib/constants';
 import { listen } from '@tauri-apps/api/event';
 
@@ -22,6 +24,9 @@ function Dashboard() {
     lastUpdate,
     deviceId,
     isClearing,
+    blockRules,
+    currentBlockStatus,
+    fetchBlockRules,
     clearAllData,
   } = useAppTracking();
 
@@ -36,7 +41,7 @@ function Dashboard() {
     const setupTauriEvents = async () => {
       try {
         console.log('Setting up Tauri event listener...');
-        const unlisten = await listen('test-event', (event) => {
+        await listen('test-event', (event) => {
           console.log('Tauri event received:', event);
         });
         console.log('Tauri event listener set up successfully');
@@ -93,10 +98,32 @@ function Dashboard() {
           </div>
         </div>
         
-        <div className="app-container p-6 md:p-8">
+                <div className="app-container p-6 md:p-8">
           <UsageDataDisplay usage={usage} />
         </div>
+        
+        <div className="app-container p-6 md:p-8">
+          <BlockRulesManager 
+            blockRules={blockRules} 
+            deviceId={deviceId} 
+            onRefresh={fetchBlockRules}
+          />
+        </div>
       </div>
+      
+      {/* Block Screen Overlay */}
+      {currentBlockStatus?.is_blocked && (
+        <BlockScreen 
+          blockStatus={currentBlockStatus} 
+          deviceId={deviceId}
+          onOverride={() => {
+            // Refresh block status after override
+            setTimeout(() => {
+              // This will trigger a re-evaluation
+            }, 1000);
+          }}
+        />
+      )}
     </div>
   );
 }
