@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, NaiveTime};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite, Row};
 use tauri::State;
@@ -121,9 +121,17 @@ impl Database {
 
         if let Some(row) = session_row {
             let start_time: DateTime<Utc> = row.get("start_time");
-            let duration_sec = (now - start_time).num_seconds();
+            let raw_duration_sec = (now - start_time).num_seconds();
+            
+            // Clamp duration to prevent negative values (common in fast app switching)
+            let duration_sec = if raw_duration_sec < 0 {
+                println!("[DB] Warning: Negative duration detected ({} seconds), clamping to 0", raw_duration_sec);
+                0
+            } else {
+                raw_duration_sec
+            };
 
-            println!("[DB] Session duration: {} seconds", duration_sec);
+            println!("[DB] Session duration: {} seconds (raw: {})", duration_sec, raw_duration_sec);
 
             let res = sqlx::query(
                 "UPDATE sessions SET end_time = ?, duration_sec = ? WHERE device_id = ? AND end_time IS NULL"
@@ -184,7 +192,15 @@ impl Database {
 
         if let Some(row) = session_row {
             let start_time: DateTime<Utc> = row.get("start_time");
-            let duration_sec = (now - start_time).num_seconds();
+            let raw_duration_sec = (now - start_time).num_seconds();
+            
+            // Clamp duration to prevent negative values (common in fast app switching)
+            let duration_sec = if raw_duration_sec < 0 {
+                println!("[DB] Warning: Negative duration detected in update_current_session ({} seconds), clamping to 0", raw_duration_sec);
+                0
+            } else {
+                raw_duration_sec
+            };
 
             sqlx::query(
                 "UPDATE sessions SET end_time = ?, duration_sec = ? WHERE device_id = ? AND end_time IS NULL"
@@ -523,14 +539,29 @@ impl Database {
     /// Patch all open sessions for a device by setting their end_time and duration_sec to the provided end_time
     pub async fn patch_open_sessions_with_end_time(&self, device_id: &str, end_time: DateTime<Utc>) -> Result<(), sqlx::Error> {
         // Get all open sessions for this device
-        let rows = sqlx::query("SELECT id, start_time FROM sessions WHERE device_id = ? AND end_time IS NULL")
+        let rows = sqlx::query("SELECT id, app_name, start_time FROM sessions WHERE device_id = ? AND end_time IS NULL")
             .bind(device_id)
             .fetch_all(&self.pool)
             .await?;
         for row in rows {
             let id: String = row.get("id");
+            let app_name: String = row.get("app_name");
             let start_time: DateTime<Utc> = row.get("start_time");
-            let duration_sec = (end_time - start_time).num_seconds();
+            let raw_duration_sec = (end_time - start_time).num_seconds();
+            // Clamp duration to prevent negative values (common in fast app switching or bad end_time)
+            let duration_sec = if raw_duration_sec < 0 {
+                println!("[DB] Warning: Negative duration detected in patch_open_sessions_with_end_time ({} seconds), clamping to 0", raw_duration_sec);
+                0
+            } else {
+                raw_duration_sec
+            };
+            println!(
+                "[PATCH] Patching session: app='{}', start_time={}, last_active_time={}, duration_sec={}",
+                app_name,
+                start_time,
+                end_time,
+                duration_sec
+            );
             sqlx::query("UPDATE sessions SET end_time = ?, duration_sec = ? WHERE id = ?")
                 .bind(end_time)
                 .bind(duration_sec)
@@ -539,6 +570,322 @@ impl Database {
                 .await?;
         }
         Ok(())
+    }
+
+    // Block Rules CRUD operations
+    pub async fn create_block_rule(
+        &self,
+        device_id: &str,
+        app_name: String,
+        block_type: crate::blocking::BlockType,
+        time_window_start: Option<String>,
+        time_window_end: Option<String>,
+        daily_limit_minutes: Option<i32>,
+        strictness: crate::blocking::Strictness,
+    ) -> Result<String, sqlx::Error> {
+        let rule_id = Uuid::new_v4().to_string();
+        let now = Utc::now();
+
+        sqlx::query(
+            "INSERT INTO block_rules (id, device_id, user_id, app_name, block_type, time_window_start, time_window_end, daily_limit_minutes, strictness, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&rule_id)
+        .bind(device_id)
+        .bind::<Option<String>>(None)
+        .bind(&app_name)
+        .bind(block_type.to_string())
+        .bind(&time_window_start)
+        .bind(&time_window_end)
+        .bind(&daily_limit_minutes)
+        .bind(strictness.to_string())
+        .bind(1) // enabled = true
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(rule_id)
+    }
+
+    pub async fn get_block_rules(&self, device_id: &str) -> Result<Vec<crate::blocking::BlockRule>, sqlx::Error> {
+        let rows = sqlx::query(
+            "SELECT * FROM block_rules WHERE device_id = ? ORDER BY created_at DESC"
+        )
+        .bind(device_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut rules = Vec::new();
+        for row in rows {
+            rules.push(crate::blocking::BlockRule {
+                id: row.get("id"),
+                device_id: row.get("device_id"),
+                user_id: row.get("user_id"),
+                app_name: row.get("app_name"),
+                block_type: row.get::<String, _>("block_type").parse().unwrap_or(crate::blocking::BlockType::Time),
+                time_window_start: row.get("time_window_start"),
+                time_window_end: row.get("time_window_end"),
+                daily_limit_minutes: row.get("daily_limit_minutes"),
+                strictness: row.get::<String, _>("strictness").parse().unwrap_or(crate::blocking::Strictness::Hard),
+                enabled: row.get::<i32, _>("enabled") != 0,
+                synced: row.get::<i32, _>("synced") != 0,
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            });
+        }
+
+        Ok(rules)
+    }
+
+    pub async fn update_block_rule(
+        &self,
+        rule_id: &str,
+        app_name: Option<String>,
+        time_window_start: Option<String>,
+        time_window_end: Option<String>,
+        daily_limit_minutes: Option<i32>,
+        strictness: Option<crate::blocking::Strictness>,
+        enabled: Option<bool>,
+    ) -> Result<(), sqlx::Error> {
+        let now = Utc::now();
+
+        sqlx::query(
+            "UPDATE block_rules SET app_name = COALESCE(?, app_name), time_window_start = ?, time_window_end = ?, daily_limit_minutes = ?, strictness = COALESCE(?, strictness), enabled = COALESCE(?, enabled), updated_at = ? WHERE id = ?"
+        )
+        .bind(&app_name)
+        .bind(&time_window_start)
+        .bind(&time_window_end)
+        .bind(&daily_limit_minutes)
+        .bind(&strictness.map(|s| s.to_string()))
+        .bind(&enabled.map(|e| if e { 1 } else { 0 }))
+        .bind(now)
+        .bind(rule_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_block_rule(&self, rule_id: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM block_rules WHERE id = ?")
+            .bind(rule_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    // Block rule evaluation
+    pub async fn evaluate_block_status(
+        &self,
+        device_id: &str,
+        app_name: &str,
+    ) -> Result<crate::blocking::BlockStatus, sqlx::Error> {
+        // Get all enabled block rules for this app
+        let rules = sqlx::query(
+            "SELECT * FROM block_rules WHERE device_id = ? AND app_name = ? AND enabled = 1"
+        )
+        .bind(device_id)
+        .bind(app_name)
+        .fetch_all(&self.pool)
+        .await?;
+
+        if rules.is_empty() {
+            return Ok(crate::blocking::BlockStatus {
+                is_blocked: false,
+                rule: None,
+                reason: String::new(),
+                can_override: false,
+            });
+        }
+
+        let now = Utc::now();
+        let current_time = now.time();
+
+        for row in rules {
+            let block_type: String = row.get("block_type");
+            let strictness: String = row.get("strictness");
+            let strictness = strictness.parse().unwrap_or(crate::blocking::Strictness::Hard);
+
+            let rule = crate::blocking::BlockRule {
+                id: row.get("id"),
+                device_id: row.get("device_id"),
+                user_id: row.get("user_id"),
+                app_name: row.get("app_name"),
+                block_type: block_type.parse().unwrap_or(crate::blocking::BlockType::Time),
+                time_window_start: row.get("time_window_start"),
+                time_window_end: row.get("time_window_end"),
+                daily_limit_minutes: row.get("daily_limit_minutes"),
+                strictness: strictness.clone(),
+                enabled: row.get::<i32, _>("enabled") != 0,
+                synced: row.get::<i32, _>("synced") != 0,
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            };
+
+            let should_block = match rule.block_type {
+                crate::blocking::BlockType::Time => {
+                    if let (Some(start_str), Some(end_str)) = (&rule.time_window_start, &rule.time_window_end) {
+                        if let (Ok(start_time), Ok(end_time)) = (
+                            NaiveTime::parse_from_str(start_str, "%H:%M"),
+                            NaiveTime::parse_from_str(end_str, "%H:%M")
+                        ) {
+                            if start_time <= end_time {
+                                // Same day window
+                                current_time >= start_time && current_time <= end_time
+                            } else {
+                                // Overnight window
+                                current_time >= start_time || current_time <= end_time
+                            }
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+                crate::blocking::BlockType::Usage => {
+                    if let Some(daily_limit) = rule.daily_limit_minutes {
+                        // Get today's usage for this app
+                        let today = now.date_naive().format("%Y-%m-%d").to_string();
+                        let usage_result = sqlx::query(
+                            "SELECT SUM(duration_sec) as total_seconds FROM sessions WHERE device_id = ? AND app_name = ? AND date(start_time, 'unixepoch') = ? AND duration_sec IS NOT NULL"
+                        )
+                        .bind(device_id)
+                        .bind(app_name)
+                        .bind(&today)
+                        .fetch_one(&self.pool)
+                        .await;
+
+                        if let Ok(row) = usage_result {
+                            let total_seconds: Option<i64> = row.get("total_seconds");
+                            if let Some(seconds) = total_seconds {
+                                let minutes_used = seconds / 60;
+                                minutes_used >= daily_limit as i64
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            if should_block {
+                let reason = match rule.block_type {
+                    crate::blocking::BlockType::Time => {
+                        format!("Time-based block: {} - {}", 
+                            rule.time_window_start.as_deref().unwrap_or(""), 
+                            rule.time_window_end.as_deref().unwrap_or(""))
+                    }
+                    crate::blocking::BlockType::Usage => {
+                        format!("Usage limit exceeded: {} minutes per day", 
+                            rule.daily_limit_minutes.unwrap_or(0))
+                    }
+                };
+
+                return Ok(crate::blocking::BlockStatus {
+                    is_blocked: true,
+                    rule: Some(rule),
+                    reason,
+                    can_override: matches!(strictness, crate::blocking::Strictness::Soft),
+                });
+            }
+        }
+
+        Ok(crate::blocking::BlockStatus {
+            is_blocked: false,
+            rule: None,
+            reason: String::new(),
+            can_override: false,
+        })
+    }
+
+    // Block override tracking
+    pub async fn record_block_override(
+        &self,
+        device_id: &str,
+        rule_id: &str,
+        app_name: &str,
+        override_reason: Option<String>,
+    ) -> Result<String, sqlx::Error> {
+        let override_id = Uuid::new_v4().to_string();
+        let now = Utc::now();
+
+        sqlx::query(
+            "INSERT INTO block_overrides (id, device_id, user_id, rule_id, app_name, override_time, override_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&override_id)
+        .bind(device_id)
+        .bind::<Option<String>>(None)
+        .bind(rule_id)
+        .bind(app_name)
+        .bind(now)
+        .bind(&override_reason)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(override_id)
+    }
+
+    pub async fn get_block_overrides(&self, device_id: &str, limit: Option<i64>) -> Result<Vec<crate::blocking::BlockOverride>, sqlx::Error> {
+        let limit = limit.unwrap_or(100);
+        let rows = sqlx::query(
+            "SELECT * FROM block_overrides WHERE device_id = ? ORDER BY override_time DESC LIMIT ?"
+        )
+        .bind(device_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut overrides = Vec::new();
+        for row in rows {
+            overrides.push(crate::blocking::BlockOverride {
+                id: row.get("id"),
+                device_id: row.get("device_id"),
+                user_id: row.get("user_id"),
+                rule_id: row.get("rule_id"),
+                app_name: row.get("app_name"),
+                override_time: row.get("override_time"),
+                override_reason: row.get("override_reason"),
+                created_at: row.get("created_at"),
+            });
+        }
+
+        Ok(overrides)
+    }
+
+    pub async fn get_daily_usage_for_app(&self, device_id: &str, app_name: &str, date: chrono::NaiveDate) -> Result<i64, sqlx::Error> {
+        let start_of_day = date.and_hms_opt(0, 0, 0).unwrap();
+        let end_of_day = date.and_hms_opt(23, 59, 59).unwrap();
+        
+        let row = sqlx::query(
+            "SELECT COALESCE(SUM(duration_sec), 0) as total_seconds
+             FROM sessions 
+             WHERE device_id = ? 
+             AND app_name = ? 
+             AND start_time >= ? 
+             AND start_time <= ? 
+             AND duration_sec IS NOT NULL"
+        )
+        .bind(device_id)
+        .bind(app_name)
+        .bind(start_of_day)
+        .bind(end_of_day)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.get("total_seconds"))
+    }
+
+    pub async fn get_daily_usage_minutes(&self, device_id: &str, app_name: &str) -> Result<i64, sqlx::Error> {
+        let today = chrono::Local::now().date_naive();
+        let usage_seconds = self.get_daily_usage_for_app(device_id, app_name, today).await?;
+        Ok(usage_seconds / 60) // Convert seconds to minutes
     }
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useAppTracking } from '@/hooks/useAppTracking';
+import { useBlocking } from '@/hooks/useBlocking';
 import { 
   CurrentAppDisplay, 
   DeviceIdDisplay, 
@@ -12,6 +13,9 @@ import {
   Navigation,
   SyncStatus
 } from '@/components';
+import { BlockScreen } from '@/components/BlockScreen';
+import { BlockRulesManager } from '@/components/BlockRulesManager';
+import { BlockingTest } from '@/components/BlockingTest';
 import { APP_CONSTANTS } from '@/lib/constants';
 import { listen } from '@tauri-apps/api/event';
 
@@ -22,8 +26,16 @@ function Dashboard() {
     lastUpdate,
     deviceId,
     isClearing,
+    blockRules,
+    fetchBlockRules,
     clearAllData,
   } = useAppTracking();
+
+  const {
+    currentBlockStatus,
+    handleOverride,
+    refreshBlockingRules,
+  } = useBlocking(deviceId);
 
   useEffect(() => {
     // Add global click handler to debug
@@ -36,7 +48,7 @@ function Dashboard() {
     const setupTauriEvents = async () => {
       try {
         console.log('Setting up Tauri event listener...');
-        const unlisten = await listen('test-event', (event) => {
+        await listen('test-event', (event) => {
           console.log('Tauri event received:', event);
         });
         console.log('Tauri event listener set up successfully');
@@ -81,7 +93,7 @@ function Dashboard() {
             <div className="flex items-center gap-4">
               <SyncStatus />
               <UserProfile />
-            <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
+              <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
           </div>
           
@@ -93,10 +105,37 @@ function Dashboard() {
           </div>
         </div>
         
-        <div className="app-container p-6 md:p-8">
+                <div className="app-container p-6 md:p-8">
           <UsageDataDisplay usage={usage} />
         </div>
+        
+        <div className="app-container p-6 md:p-8">
+          <BlockRulesManager 
+            blockRules={blockRules} 
+            deviceId={deviceId} 
+            onRefresh={() => {
+              fetchBlockRules();
+              refreshBlockingRules();
+            }}
+          />
+        </div>
+
+        {/* Development Testing Component */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="app-container p-6 md:p-8">
+            <BlockingTest deviceId={deviceId} />
+          </div>
+        )}
       </div>
+      
+      {/* Block Screen Overlay */}
+      {currentBlockStatus?.is_blocked && (
+        <BlockScreen 
+          blockStatus={currentBlockStatus} 
+          deviceId={deviceId}
+          onOverride={handleOverride}
+        />
+      )}
     </div>
   );
 }
