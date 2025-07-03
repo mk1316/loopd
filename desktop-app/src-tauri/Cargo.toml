@@ -31,6 +31,7 @@ serde_json = "1.0"
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
 tokio = { version = "1.45.1", features = ["time", "full"] }
 reqwest = { version = "0.12", features = ["json"] }
+tauri-plugin-store = "2.3.0"
 
 # OS-specific dependencies for app detection
 [target.'cfg(windows)'.dependencies]

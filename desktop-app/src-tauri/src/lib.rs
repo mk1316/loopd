@@ -2,6 +2,9 @@
 pub mod usage;
 pub mod database;
 pub mod supabase;
+pub mod blocking;
+
+use blocking::BLOCKING_SYSTEM;
 
 use chrono::Local;
 use std::sync::Arc;
@@ -11,6 +14,7 @@ use crate::database::Database;
 use crate::usage::UsageTracker;
 use tokio::time::sleep;
 use uuid::Uuid;
+use tauri_plugin_store::Builder as StorePluginBuilder;
 
 /// Shared database handle stored in Tauri `State`.
 /// Keeping this alias public ensures we always use the same type everywhere
@@ -93,7 +97,85 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
             *tracker_guard = Some(UsageTracker::new(device_id.clone()));
         }
 
+        // Initialize blocking system with device ID
+        {
+            let mut blocking_guard = BLOCKING_SYSTEM.lock().unwrap();
+            *blocking_guard = blocking::BlockingSystem::new(device_id.clone());
+        }
+
+        // Load initial blocking rules
+        let rules = db.get_block_rules(&device_id).await.unwrap_or_else(|e| {
+            log::warn!("Failed to load blocking rules: {}", e);
+            Vec::new()
+        });
+        {
+            let mut blocking_guard = BLOCKING_SYSTEM.lock().unwrap();
+            blocking_guard.update_rules(rules);
+        }
+
         log::info!("Started tracking with device ID: {}", device_id);
+
+        // Start the blocking evaluation loop in a separate task
+        let blocking_db = db.clone();
+        let blocking_app_handle = app_handle.clone();
+        let blocking_device_id = device_id.clone();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                // Get current active app
+                let current_app = {
+                    let tracker_guard = usage::USAGE_TRACKER.lock().unwrap();
+                    if let Some(tracker) = tracker_guard.as_ref() {
+                        tracker.get_current_app()
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(app_name) = current_app {
+                    // Evaluate blocking for the current app
+                    let block_status = {
+                        let blocking_data = {
+                            let blocking_guard = BLOCKING_SYSTEM.lock().unwrap();
+                            (blocking_guard.device_id.clone(), blocking_guard.rules.clone(), blocking_guard.active_overrides.clone())
+                        };
+                        
+                        // Now evaluate without holding the mutex
+                        let (device_id, rules, active_overrides) = blocking_data;
+                        let mut temp_blocking_system = blocking::BlockingSystem::new(device_id);
+                        temp_blocking_system.update_rules(rules);
+                        for (app, time) in active_overrides {
+                            temp_blocking_system.add_override(app);
+                        }
+                        
+                        temp_blocking_system.evaluate_app(&app_name, &blocking_db).await
+                    };
+
+                    if let Ok(Some(block_status)) = block_status {
+                        if block_status.is_blocked {
+                            log::info!("App blocked: {} - {}", app_name, block_status.reason);
+                            
+                            // Emit blocking event to frontend
+                            blocking_app_handle.emit("app_blocked", &block_status).ok();
+                            
+                            // Terminate the process if it's a hard block
+                            if let Some(rule) = &block_status.rule {
+                                if matches!(rule.strictness, blocking::Strictness::Hard) {
+                                    if let Err(e) = blocking::terminate_process(&app_name) {
+                                        log::warn!("Failed to terminate blocked app {}: {}", app_name, e);
+                                    }
+                                }
+                            }
+                        } else {
+                            // No block is active, emit unblock event
+                            blocking_app_handle.emit("app_unblocked", &app_name).ok();
+                        }
+                    }
+                }
+
+                // Sleep for a short interval before next evaluation
+                sleep(std::time::Duration::from_millis(100)).await;
+            }
+        });
 
         loop {
             println!("[TRACKER] Background loop iteration");
@@ -115,6 +197,11 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
             if let Ok(action) = action {
                 match action {
                     usage::UpdateAction::StartSession { app_name, window_title } => {
+                        // Exclude LockApp from being recorded
+                        if app_name == "LockApp" {
+                            println!("[TRACKER] Skipping LockApp session");
+                            continue;
+                        }
                         // Check if app has changed
                         if current_app.as_ref() != Some(&app_name) {
                             println!("[TRACKER] App switch detected: {:?} -> {:?}", current_app, app_name);
@@ -128,6 +215,48 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                             current_app = Some(app_name.clone());
                             last_switch_time = Local::now();
                             app_handle.emit("switched", &app_name).ok();
+
+                            // Evaluate blocking for the new app
+                            let app_name_for_blocking = app_name.clone();
+                            let db_clone = db.clone();
+                            let app_handle_clone = app_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                // Evaluate blocking status - get the blocking system data first, then evaluate
+                                let block_status = {
+                                    let blocking_data = {
+                                        let blocking_guard = BLOCKING_SYSTEM.lock().unwrap();
+                                        (blocking_guard.device_id.clone(), blocking_guard.rules.clone(), blocking_guard.active_overrides.clone())
+                                    };
+                                    
+                                    // Now evaluate without holding the mutex
+                                    let (device_id, rules, active_overrides) = blocking_data;
+                                    let mut temp_blocking_system = blocking::BlockingSystem::new(device_id);
+                                    temp_blocking_system.update_rules(rules);
+                                    for (app, time) in active_overrides {
+                                        temp_blocking_system.add_override(app);
+                                    }
+                                    
+                                    temp_blocking_system.evaluate_app(&app_name_for_blocking, &db_clone).await
+                                };
+
+                                if let Ok(Some(block_status)) = block_status {
+                                    if block_status.is_blocked {
+                                        log::info!("App blocked: {} - {}", app_name_for_blocking, block_status.reason);
+                                        
+                                        // Emit blocking event to frontend
+                                        app_handle_clone.emit("app_blocked", &block_status).ok();
+                                        
+                                        // Terminate the process if it's a hard block
+                                        if let Some(rule) = &block_status.rule {
+                                            if matches!(rule.strictness, blocking::Strictness::Hard) {
+                                                if let Err(e) = blocking::terminate_process(&app_name_for_blocking) {
+                                                    log::warn!("Failed to terminate blocked app {}: {}", app_name_for_blocking, e);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
 
                             // Handle database operations in a separate task
                             let db_clone = db.clone();
@@ -161,7 +290,45 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                         });
                     }
                     usage::UpdateAction::None => {
-                        // No action needed
+                        // Evaluate blocking for current app even when no change
+                        if let Some(current_app_name) = &current_app {
+                            let app_name = current_app_name.clone();
+                            let db_clone = db.clone();
+                            let app_handle_clone = app_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let block_status = {
+                                    let blocking_data = {
+                                        let blocking_guard = BLOCKING_SYSTEM.lock().unwrap();
+                                        (blocking_guard.device_id.clone(), blocking_guard.rules.clone(), blocking_guard.active_overrides.clone())
+                                    };
+                                    
+                                    // Now evaluate without holding the mutex
+                                    let (device_id, rules, active_overrides) = blocking_data;
+                                    let mut temp_blocking_system = blocking::BlockingSystem::new(device_id);
+                                    temp_blocking_system.update_rules(rules);
+                                    for (app, time) in active_overrides {
+                                        temp_blocking_system.add_override(app);
+                                    }
+                                    
+                                    temp_blocking_system.evaluate_app(&app_name, &db_clone).await
+                                };
+
+                                if let Ok(Some(block_status)) = block_status {
+                                    if block_status.is_blocked {
+                                        log::info!("Current app blocked: {} - {}", app_name, block_status.reason);
+                                        app_handle_clone.emit("app_blocked", &block_status).ok();
+                                        
+                                        if let Some(rule) = &block_status.rule {
+                                            if matches!(rule.strictness, blocking::Strictness::Hard) {
+                                                if let Err(e) = blocking::terminate_process(&app_name) {
+                                                    log::warn!("Failed to terminate blocked app {}: {}", app_name, e);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             } else if let Err(e) = action {
@@ -171,4 +338,13 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
             sleep(std::time::Duration::from_secs(1)).await;
         }
     });
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(StorePluginBuilder::default().build())
+        // ... existing plugins and setup ...
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

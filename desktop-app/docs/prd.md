@@ -1,37 +1,41 @@
-# 📄 Product Requirements Document (PRD)
+# 📄 Product Requirements Document (PRD) - loopd Desktop App
 
 ## 1. **Product Name**
 
-**loopd** – A cross-platform productivity app that tracks and limits app usage.
+**loopd** – A cross-platform desktop productivity app that tracks app usage, blocks distracting applications, and provides insights to help users stay focused.
 
 ---
 
 ## 2. **Summary**
 
-loopd helps users stay productive by tracking desktop app usage, blocking distracting apps, and syncing usage data across devices.
+loopd helps users understand and control their digital habits by tracking desktop app usage in real-time, blocking distracting apps with customizable rules, and providing detailed insights into time spent across applications. The app runs as a Tauri-based desktop application with local SQLite storage and optional Supabase cloud synchronization.
 
 ---
 
 ## 3. **Objectives**
 
-* Track which apps the user is using and for how long.
-* Allow users to define apps they want to block.
-* Show a custom overlay screen with options when a blocked app is opened.
-* Enable "Emergency Override" for special use cases.
-* Sync user data and preferences across devices via Supabase.
+* **Usage Tracking**: Automatically track which desktop applications users are using and for how long
+* **App Blocking**: Allow users to define and enforce blocking rules for distracting applications
+* **Insights & Analytics**: Provide detailed usage statistics and trends to help users understand their digital habits
+* **Cross-Device Sync**: Enable optional cloud synchronization of usage data and blocking rules via Supabase
+* **Privacy-First**: Prioritize local data storage with optional cloud sync for user control
 
 ---
 
 ## 4. **Key Features**
 
-| Feature              | Description                                                          |
-| -------------------- | -------------------------------------------------------------------- |
-| App Usage Tracking   | Log time spent on each app in the background                         |
-| App Blocking         | Block defined apps by showing fullscreen overlay with action options |
-| Emergency Override   | Temporarily allow access to a blocked app                            |
-| Dashboard            | Display app usage stats, block list, and override history            |
-| Cross-device Sync    | Supabase stores usage data, blocked apps, and override logs          |
-| Auth & User Accounts | Supabase handles login, session storage, and account management      |
+| Feature              | Status | Description                                                          |
+| -------------------- | ------ | -------------------------------------------------------------------- |
+| Real-time App Tracking | ✅ | Background tracking of active applications with session management |
+| Usage Analytics | ✅ | Daily, weekly, and custom period usage summaries with detailed breakdowns |
+| Block Rules Management | ✅ | Create, edit, and manage blocking rules for applications |
+| App Blocking | ✅ | Overlay blocking screen with override capabilities |
+| Local Data Storage | ✅ | SQLite database for secure local data persistence |
+| Cross-device Sync | ✅ | Optional Supabase integration for cloud synchronization |
+| Authentication | ✅ | Supabase Auth integration for user accounts |
+| Timeline View | ✅ | Detailed timeline of app usage sessions |
+| Device Management | ✅ | Multi-device support with device identification |
+| Data Export/Clear | ✅ | Local data management and clearing capabilities |
 
 ---
 
@@ -39,48 +43,82 @@ loopd helps users stay productive by tracking desktop app usage, blocking distra
 
 ### As a user:
 
-* I want to see how much time I spend on different apps each day.
-* I want to block certain apps during work hours.
-* I want to override blocks when I really need access.
-* I want my data to stay in sync across my devices.
+* I want to see how much time I spend on different applications each day, week, and month
+* I want to block certain applications during specific time windows or after daily usage limits
+* I want to override blocks when I really need access to a blocked application
+* I want my usage data and blocking rules to sync across my devices (optional)
+* I want to view detailed timelines of my app usage to understand my patterns
+* I want to clear my usage data when needed for privacy
+* I want the app to run quietly in the background without interrupting my workflow
 
 ---
 
 ## 6. **User Flows**
 
-### 🟢 App Usage Flow
+### 🟢 App Usage Tracking Flow
 
-1. User logs in
-2. Background service starts tracking app usage
-3. Usage data displayed on dashboard in real time
+1. User launches the loopd desktop app
+2. App automatically starts tracking active applications in the background
+3. Usage data is stored locally in SQLite database
+4. Real-time usage statistics are displayed in the dashboard
+5. Optional: Data syncs to Supabase cloud storage
 
 ### 🔴 App Blocking Flow
 
-1. Blocked app detected
-2. Show fullscreen overlay with "Close App" or "Override"
-3. Log user's choice and act accordingly
+1. User creates blocking rules for specific applications
+2. App monitors for blocked applications being launched
+3. When blocked app is detected, overlay blocking screen appears
+4. User can either close the app or request an override
+5. Override attempts are logged and can be reviewed later
+
+### 📊 Analytics & Insights Flow
+
+1. User navigates to timeline or analytics views
+2. App displays usage data with filtering options (date ranges, apps)
+3. User can drill down into specific sessions and time periods
+4. Usage patterns and trends are visualized for better understanding
 
 ---
 
-## 7. **Requirements**
+## 7. **Technical Requirements**
 
-### Functional
+### Functional Requirements
 
-* ✅ Track current active app and duration
-* ✅ Allow user to define a block list
-* ✅ Block apps with fullscreen UI
-* ✅ Sync logs and preferences with Supabase
-* ✅ Display real-time usage in frontend
+* ✅ **Real-time App Tracking**: Monitor active applications using OS-specific APIs
+* ✅ **Session Management**: Track app usage sessions with start/end times
+* ✅ **Block Rules Engine**: Evaluate and enforce user-defined blocking rules
+* ✅ **Local Data Storage**: SQLite database for secure local data persistence
+* ✅ **Cloud Synchronization**: Optional Supabase integration for cross-device sync
+* ✅ **User Authentication**: Supabase Auth for user account management
+* ✅ **Cross-platform Support**: Windows, macOS, and Linux compatibility
+* ✅ **Background Operation**: Tray/minimized mode for non-intrusive operation
 
-### Non-Functional
+### Non-Functional Requirements
 
-* 🔒 Secure (RLS on Supabase, local encryption optional)
-* 🚀 Fast and low-resource (Rust-based tracking)
-* 💻 Cross-platform (Windows, macOS, Linux/X11)
+* 🔒 **Security**: Local data encryption, secure cloud sync, privacy-first design
+* 🚀 **Performance**: Low resource usage, efficient background operation
+* 💻 **Reliability**: Graceful error handling, data recovery, offline functionality
+* 🔄 **Scalability**: Efficient data storage, optimized queries, minimal memory footprint
 
 ---
 
-## 8. **KPIs / Success Metrics**
+## 8. **Data Architecture**
+
+### Local Storage (SQLite)
+- **Devices**: Device identification and metadata
+- **Sessions**: App usage sessions with timing data
+- **Block Rules**: User-defined blocking rules and configurations
+- **Block Overrides**: Log of override attempts and reasons
+
+### Cloud Storage (Supabase - Optional)
+- **User Accounts**: Authentication and user management
+- **Usage Data**: Synced usage sessions and statistics
+- **Block Rules**: Cross-device rule synchronization
+- **Device Management**: Multi-device coordination
+
+---
+
+## 9. **KPIs / Success Metrics**
 
 * % daily active users (DAU)
 * Average app usage reduced over time
