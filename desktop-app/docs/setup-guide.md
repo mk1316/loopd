@@ -272,6 +272,14 @@ When reporting issues, include:
 - Error messages and stack traces
 - Steps to reproduce the issue
 
+# 🐞 Troubleshooting & Support
+
+- For installation or setup issues, check the [GitHub Issues](https://github.com/your-org/loopd/issues).
+- For real-time help, join the [Tauri Discord](https://discord.gg/tauri).
+- Please contribute improvements to this guide via pull requests!
+
 ---
+
+_Last updated: 2025-07-03_
 
 **Happy coding! 🚀**

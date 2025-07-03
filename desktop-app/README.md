@@ -1,5 +1,11 @@
 # Loopd - Cross-Platform Digital Wellness & Productivity Tracker
 
+[![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/loopd/ci.yml?branch=main)](https://github.com/your-org/loopd/actions)
+[![License](https://img.shields.io/github/license/your-org/loopd)](LICENSE)
+[![Tauri](https://img.shields.io/badge/tauri-2.0-blue)](https://tauri.app/)
+[![Next.js](https://img.shields.io/badge/next.js-15-blue)](https://nextjs.org/)
+[![Supabase](https://img.shields.io/badge/supabase-cloud-green)](https://supabase.com/)
+
 A powerful desktop application built with Tauri that tracks application usage, provides digital wellness insights, and syncs data across devices in real-time with comprehensive cloud integration.
 
 ## 🚀 Features
@@ -272,6 +278,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Powered by [Next.js](https://nextjs.org/) for the frontend framework
 - Data storage and sync with [Supabase](https://supabase.com/)
 - Icons from [Lucide React](https://lucide.dev/)
+
+## 💬 Support & Contact
+
+- For questions, issues, or feature requests, please [open an issue](https://github.com/your-org/loopd/issues).
+- For direct contact, reach out via [your-email@example.com](mailto:your-email@example.com).
+- Join the [Tauri Discord](https://discord.gg/tauri) for community support and discussion.
 
 ---
 

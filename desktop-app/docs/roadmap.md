@@ -31,41 +31,34 @@
 - ✅ **Production setup** and deployment guides
 - ✅ **Analytics utilities** for usage statistics and productivity scoring
 
+### **Phase 3: App Blocking System (Partially Complete)**
+- ✅ **Blocked apps management (basic)**: Add/remove apps from block list
+- ✅ **Process monitoring**: Real-time blocked app detection and process termination
+- ✅ **Blocking UI (basic)**: Fullscreen overlay system and emergency override options
+- ✅ **User interaction handling (basic)**: Close app functionality and override logging
+
 ---
 
 ## 🚀 **Current Development Phase**
 
-### **Phase 3: App Blocking System (In Progress)**
+### **Phase 3: App Blocking System (Advanced & Polish, In Progress)**
 
-**Timeline**: December 2024 - January 2025
+**Timeline**: July 3, 2025 - July 10, 2025
 
-#### **3.1 Blocking Detection**
-- 🔄 **Blocked apps management**
-  - Add/remove apps from block list
-  - Category-based blocking
-  - Time-based blocking schedules
-- 🔄 **Process monitoring**
-  - Real-time blocked app detection
-  - Process termination capabilities
-  - Override system implementation
-
-#### **3.2 Blocking UI**
-- 🔄 **Fullscreen overlay system**
-  - Tauri window management
-  - Blocking interface design
-  - Emergency override options
-- 🔄 **User interaction handling**
-  - Close app functionality
-  - Override logging
-  - Blocking analytics
+#### **3.3 Advanced Blocking Features**
+- 🔄 **Category-based blocking**
+- 🔄 **Time-based blocking schedules**
+- 🔄 **Blocking analytics and reporting**
+- 🔄 **Override analytics and history**
+- 🔄 **UI/UX improvements for blocking interface**
 
 ---
 
 ## 📅 **Upcoming Phases**
 
-### **Phase 4: Analytics & Insights (Q1 2025)**
+### **Phase 4: Analytics & Insights (Planned)**
 
-**Timeline**: January - February 2025
+**Timeline**: July 10, 2025 - July 17, 2025
 
 #### **4.1 Advanced Analytics Dashboard**
 - 📋 **Enhanced data visualization**
@@ -88,9 +81,9 @@
   - Pomodoro timer integration
   - Focus score tracking
 
-### **Phase 5: Settings & Configuration (Q2 2025)**
+### **Phase 5: Settings & Configuration (Planned)**
 
-**Timeline**: March - April 2025
+**Timeline**: July 17, 2025 - July 24, 2025
 
 #### **5.1 User Preferences**
 - 📋 **Customizable tracking**
@@ -112,9 +105,9 @@
   - Productivity tool connections
   - API for third-party apps
 
-### **Phase 6: Polish & Scale (Q3 2025)**
+### **Phase 6: Polish & Scale (Planned)**
 
-**Timeline**: May - June 2025
+**Timeline**: July 24, 2025 - July 31, 2025
 
 #### **6.1 Performance & Security**
 - 📋 **Performance optimization**
@@ -306,5 +299,15 @@ CREATE TABLE productivity_goals (
 
 ---
 
-**Last Updated**: December 2024  
-**Status**: Active Development - Phase 3 (App Blocking) 
+**Last Updated**: July 3, 2025  
+**Status**: Active Development - Phase 3 (Advanced App Blocking)
+
+## 🤝 How to Contribute
+
+- Suggest new features or changes by opening an issue on GitHub.
+- Submit pull requests for roadmap updates or completed milestones.
+- Join the [Tauri Discord](https://discord.gg/tauri) to discuss priorities and ideas.
+
+---
+
+_Last updated: 2025-07-03_ 

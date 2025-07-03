@@ -86,3 +86,20 @@ loopd helps users stay productive by tracking desktop app usage, blocking distra
 * Average app usage reduced over time
 * Number of override events vs blocks
 * Time spent in focused apps vs distractions
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please fork the repository, create a feature branch, and open a pull request with your changes. For major changes, please open an issue first to discuss what you would like to change.
+
+---
+
+## 💬 Contact & Feedback
+
+- For questions or feedback, please open an issue on GitHub.
+- Join the [Tauri Discord](https://discord.gg/tauri) for community support.
+
+---
+
+_Last updated: 2025-07-03_

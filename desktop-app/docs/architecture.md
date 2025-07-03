@@ -235,82 +235,29 @@ pub fn get_active_app_info() -> Result<AppInfo, Box<dyn std::error::Error>> {
 
 ---
 
-## 7. **Security & Privacy**
+## 6. **Component Design Patterns**
 
-### 7.1 Data Protection
+Loopd's React components follow best practices for maintainability and scalability. Key guidelines:
+- Use function components and hooks (no class components)
+- Co-locate component, styles, and tests
+- Use clear prop types and TypeScript interfaces
+- Organize by feature when possible (see [React Handbook Project Standards](https://reacthandbook.dev/project-standards))
+- Prefer composition over inheritance
 
-* **Local-first approach**: All usage data stored locally by default
-* **Optional cloud sync**: Users choose whether to sync data
-* **Row Level Security (RLS)**: Supabase enforces user data isolation
-* **Device identification**: Unique device IDs for multi-device tracking
-
-### 7.2 Permissions Required
-
-| OS      | Permissions                          | Status |
-| ------- | ------------------------------------ | ------ |
-| Windows | None by default, admin for some apps | ✅     |
-| macOS   | Accessibility + Screen Recording     | 🔄     |
-| Linux   | X11 support; Wayland limited         | ✅     |
-
----
-
-## 8. **Performance Considerations**
-
-### 8.1 Optimization Strategies
-
-* **Efficient polling**: 1-2 second intervals for app detection
-* **Local buffering**: Minimize database writes
-* **Event-driven updates**: Real-time frontend updates via Tauri events
-* **Lazy loading**: Load usage data on demand
-* **Background processing**: Non-blocking app tracking
-
-### 8.2 Resource Usage
-
-* **Memory**: Minimal overhead with efficient Rust implementation
-* **CPU**: Low impact with optimized polling intervals
-* **Storage**: Compact SQLite database with efficient indexing
-* **Network**: Optional cloud sync with configurable intervals
-
----
-
-## 9. **Development Workflow**
-
-### 9.1 Local Development
-
-```bash
-# Start development server
-npm run tauri dev
-
-# Build for production
-npm run tauri build
-
-# Platform-specific builds
-npm run tauri build -- --target x86_64-pc-windows-msvc
-npm run tauri build -- --target x86_64-apple-darwin
-npm run tauri build -- --target x86_64-unknown-linux-gnu
+Example structure:
+```
+src/components/
+  ├── Button.tsx
+  ├── TimelineView.tsx
+  └── ...
 ```
 
-### 9.2 Testing Strategy
+---
 
-* **Unit tests**: Rust backend functions
-* **Integration tests**: Tauri command/event system
-* **E2E tests**: Full application workflow
-* **Cross-platform testing**: Windows, macOS, Linux
+## 🤝 Contributing
+
+Contributions are welcome! Please fork the repo, create a branch, and open a pull request. For architectural changes, open an issue for discussion first.
 
 ---
 
-## 10. **Future Architecture Enhancements**
-
-* **Microservices**: Separate tracking, blocking, and sync services
-* **Plugin system**: Extensible app detection and blocking rules
-* **Machine learning**: Usage pattern analysis and productivity insights
-* **API integration**: Connect with productivity tools and calendars
-* **Mobile companion**: iOS/Android app for mobile usage tracking
-
----
-
-**Architecture Version**: 2.0  
-**Last Updated**: December 2024  
-**Status**: Active Development
-
-- App names are now normalized and stored without file extensions for cross-platform consistency (e.g., 'chrome' instead of 'chrome.exe').
+_Last updated: 2025-07-03_

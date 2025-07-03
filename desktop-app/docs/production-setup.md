@@ -78,3 +78,15 @@ CREATE INDEX IF NOT EXISTS idx_app_usage_logs_created_at ON app_usage_logs(creat
 - Monitor database size and performance
 - Update Supabase client libraries
 - Review security settings quarterly 
+
+---
+
+## 💬 Support & Maintenance
+
+- For production issues, open a GitHub issue or discussion.
+- For urgent help, join the [Tauri Discord](https://discord.gg/tauri).
+- Please contribute improvements to this guide via pull requests!
+
+---
+
+_Last updated: 2025-07-03_ 
