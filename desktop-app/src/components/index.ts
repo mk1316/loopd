@@ -9,4 +9,5 @@ export { Navigation } from './Navigation';
 export { DaySelector } from './DaySelector';
 export { SyncStatus } from './SyncStatus';
 export { BlockScreen } from './BlockScreen';
-export { BlockRulesManager } from './BlockRulesManager'; 
+export { BlockRulesManager } from './BlockRulesManager';
+export { BlockingTest } from './BlockingTest'; 

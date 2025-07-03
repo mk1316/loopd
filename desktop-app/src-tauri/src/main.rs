@@ -99,6 +99,7 @@ fn main() {
             app_lib::database::get_unsynced_sessions_command,
             app_lib::database::test_supabase_connection_command,
             app_lib::database::patch_open_sessions_with_end_time,
+            app_lib::database::fix_negative_durations_command,
             app_lib::blocking::create_block_rule_command,
             app_lib::blocking::get_block_rules_command,
             app_lib::blocking::update_block_rule_command,
@@ -106,6 +107,10 @@ fn main() {
             app_lib::blocking::evaluate_block_status_command,
             app_lib::blocking::record_block_override_command,
             app_lib::blocking::get_block_overrides_command,
+            app_lib::blocking::terminate_blocked_app_command,
+            app_lib::blocking::add_block_override_command,
+            app_lib::blocking::remove_block_override_command,
+            app_lib::blocking::refresh_blocking_rules_command,
             test_command
         ])
         .run(tauri::generate_context!())

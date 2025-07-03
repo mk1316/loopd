@@ -1,316 +1,358 @@
-# 📄 Architecture Document: Loopd - Cross-Platform Productivity App
+# 🏗️ Architectural Design Document - loopd Desktop App
 
-## 1. **Overview**
+## 1. **High-Level Architecture**
 
-**Loopd** is a cross-platform desktop application that tracks application usage, provides productivity insights, and will support app blocking with cloud synchronization. Built with **Tauri (Rust backend)** and **Next.js (React frontend)**, using **SQLite** for local storage and **Supabase** for cloud sync and authentication.
-
----
-
-## 2. **System Architecture**
-
-### 2.1 High-Level Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │   Cloud         │
-│   (Next.js)     │◄──►│   (Rust/Tauri)  │◄──►│   (Supabase)    │
-│                 │    │                 │    │                 │
-│ • Dashboard     │    │ • App Tracking  │    │ • Auth          │
-│ • Real-time UI  │    │ • Local Storage │    │ • Cloud Sync    │
-│ • User Controls │    │ • Event System  │    │ • Analytics     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### 2.2 Frontend (Next.js + React)
-
-* **Tech Stack**: React 19, Next.js 15, TypeScript, Tailwind CSS, Lucide React
-* **Responsibilities**:
-  * Display real-time app usage dashboard
-  * Show current active application
-  * Provide data management controls
-  * Handle user interactions and settings
-  * Communicate with Rust backend via Tauri commands/events
-
-* **Key Components**:
-  * `src/app/page.tsx` - Main dashboard with usage display
-  * `src/app/timeline/page.tsx` - Timeline view for chronological app usage history (no table view)
-  * `src/lib/supabase.ts` - Supabase client configuration
-  * Real-time event listeners for app switching
-
-### 2.3 Backend (Tauri + Rust)
-
-* **Tech Stack**: Rust, Tauri 2.0, SQLx, SQLite
-* **Responsibilities**:
-  * Monitor active applications using OS-specific APIs
-  * Store usage data locally in SQLite
-  * Emit real-time events to frontend
-  * Manage device identification
-  * Handle data persistence and retrieval
-
-* **Key Modules**:
-  * `src-tauri/src/usage.rs` - App tracking implementation
-  * `src-tauri/src/database.rs` - Database operations
-  * `src-tauri/src/lib.rs` - Main application logic and Tauri commands
-  * `src-tauri/src/storage.rs` - Local storage management
-
-### 2.4 Cloud Infrastructure (Supabase)
-
-* **Tech Stack**: Supabase Auth, PostgreSQL, Real-time subscriptions
-* **Responsibilities**:
-  * User authentication and session management
-  * Cloud data synchronization
-  * Cross-device data sharing
-  * Analytics and usage insights
-
----
-
-## 3. **Data Flow Architecture**
-
-### 3.1 App Usage Tracking Flow
+The system is architected around a **Tauri-based desktop client** that provides real-time app tracking, blocking capabilities, and local data management, with optional **Supabase backend** for cloud synchronization and authentication.
 
 ```mermaid
 graph TD
-    A[OS Active App] --> B[Rust Backend]
-    B --> C[Local SQLite Buffer]
-    B --> D[Tauri Events]
-    D --> E[React Frontend]
-    C --> F[Periodic Sync]
-    F --> G[Supabase Database]
-    G --> H[Real-time Subscription]
-    H --> I[Other Devices]
-```
+    subgraph User's Desktop (Windows/macOS/Linux)
+        A[Tauri Desktop App] --> B[Local SQLite Database]
+        A --> C[App Tracking Engine]
+        A --> D[Block Rules Engine]
+        A --> E[UI Components]
+        
+        C --> F[OS APIs]
+        D --> G[Overlay System]
+        
+        A --Optional Sync--> H[Supabase Backend]
+        A --Auth--> I[Supabase Auth]
+    end
 
-### 3.2 Real-time Event System
+    subgraph Supabase Cloud (Optional)
+        H --> J[Postgres Database]
+        H --> K[Real-time Subscriptions]
+        I --> L[User Management]
+    end
 
-```rust
-// Backend emits events when app switches
-window.emit("switched", app_info)?;
+    subgraph Local Storage
+        B --> M[Devices Table]
+        B --> N[Sessions Table]
+        B --> O[Block Rules Table]
+        B --> P[Block Overrides Table]
+    end
 
-// Frontend listens for events
-useEffect(() => {
-  listen('switched', () => {
-    fetchUsage();
-    fetchCurrentApp();
-  });
-}, []);
+    style A fill:#D6EAF8,stroke:#333,stroke-width:2px
+    style H fill:#D5F5E3,stroke:#333,stroke-width:2px
+    style B fill:#FDEBD0,stroke:#333,stroke-width:2px
 ```
 
 ---
 
-## 4. **Database Architecture**
+## 2. **Technology Stack**
 
-### 4.1 Local Storage (SQLite)
+### Frontend (Tauri WebView)
+- **Framework**: Next.js 15 with React 19
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **State Management**: React hooks and context
+- **Build Tool**: Vite with TypeScript
 
-**Current Implementation**:
+### Backend (Tauri Rust)
+- **Framework**: Tauri 2.x with Rust
+- **Database**: SQLite with sqlx
+- **OS Integration**: Platform-specific APIs for app tracking
+- **Window Management**: Tauri window API for overlays
+
+### Cloud Services (Optional)
+- **Backend**: Supabase (PostgreSQL + Auth)
+- **Real-time**: Supabase real-time subscriptions
+- **Hosting**: Supabase hosting
+
+---
+
+## 3. **Database Schema (Local SQLite)**
+
+### Core Tables
+
+#### `devices` - Device Management
 ```sql
--- Sessions table for local usage tracking
-CREATE TABLE sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id TEXT NOT NULL,
-    app_name TEXT NOT NULL,
-    window_title TEXT,
-    start_time DATETIME NOT NULL,
-    end_time DATETIME,
-    duration_seconds INTEGER
-);
-
--- Device identification
 CREATE TABLE devices (
-    id TEXT PRIMARY KEY,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    id            TEXT PRIMARY KEY,      -- UUID generated on first run
+    user_id       TEXT,                  -- Supabase uid (nullable until login)
+    name          TEXT,                  -- e.g. "John's MacBook"
+    os            TEXT,                  -- win32 / darwin / linux
+    created_at    INTEGER NOT NULL,      -- unix epoch seconds (UTC)
+    updated_at    INTEGER NOT NULL       -- unix epoch seconds (UTC)
 );
 ```
 
-### 4.2 Cloud Storage (Supabase/PostgreSQL)
-
-**Planned Schema**:
+#### `sessions` - App Usage Tracking
 ```sql
--- App usage logs (synced from local)
-app_usage_logs (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    app_name TEXT NOT NULL,
-    window_title TEXT,
-    duration_seconds INTEGER NOT NULL,
-    start_time TIMESTAMP WITH TIME ZONE,
-    device_id TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE sessions (
+    id              TEXT PRIMARY KEY,    -- UUID
+    device_id       TEXT NOT NULL,
+    user_id         TEXT,                -- redundant but handy for queries
+    app_name        TEXT NOT NULL,
+    window_title    TEXT,
+    start_time      INTEGER NOT NULL,    -- unix epoch seconds (UTC)
+    end_time        INTEGER,             -- NULL until session closes
+    duration_sec    INTEGER,             -- cached for fast aggregates
+    synced          INTEGER NOT NULL DEFAULT 0,  -- 0 = local only, 1 = pushed to cloud
+    created_at      INTEGER NOT NULL,    -- unix epoch seconds (UTC)
+    FOREIGN KEY (device_id) REFERENCES devices(id)
 );
+```
 
--- Blocked apps (future feature)
-blocked_apps (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    app_name TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+#### `block_rules` - App Blocking Rules
+```sql
+CREATE TABLE block_rules (
+    id              TEXT PRIMARY KEY,    -- UUID
+    device_id       TEXT NOT NULL,
+    user_id         TEXT,                -- redundant but handy for queries
+    app_name        TEXT NOT NULL,       -- app to block
+    block_type      TEXT NOT NULL,       -- 'time' or 'usage'
+    time_window_start TEXT,              -- HH:MM format for time-based rules
+    time_window_end TEXT,                -- HH:MM format for time-based rules
+    daily_limit_minutes INTEGER,         -- minutes for usage-based rules
+    strictness      TEXT NOT NULL,       -- 'hard' or 'soft'
+    enabled         INTEGER NOT NULL DEFAULT 1,  -- 0 = disabled, 1 = enabled
+    synced          INTEGER NOT NULL DEFAULT 0,  -- 0 = local only, 1 = pushed to cloud
+    created_at      INTEGER NOT NULL,    -- unix epoch seconds (UTC)
+    updated_at      INTEGER NOT NULL,    -- unix epoch seconds (UTC)
+    FOREIGN KEY (device_id) REFERENCES devices(id)
 );
+```
 
--- Emergency overrides (future feature)
-overrides (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    app_name TEXT NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+#### `block_overrides` - Override Tracking
+```sql
+CREATE TABLE block_overrides (
+    id              TEXT PRIMARY KEY,    -- UUID
+    device_id       TEXT NOT NULL,
+    user_id         TEXT,
+    rule_id         TEXT NOT NULL,       -- reference to block_rules.id
+    app_name        TEXT NOT NULL,       -- app that was blocked
+    override_time   INTEGER NOT NULL,    -- unix epoch seconds (UTC)
+    override_reason TEXT,                -- user-provided reason for override
+    created_at      INTEGER NOT NULL,    -- unix epoch seconds (UTC)
+    FOREIGN KEY (device_id) REFERENCES devices(id),
+    FOREIGN KEY (rule_id) REFERENCES block_rules(id)
 );
+```
+
+### Views for Analytics
+```sql
+-- Daily usage summary
+CREATE VIEW usage_summary AS
+SELECT
+    date(start_time, 'unixepoch') AS day,
+    app_name,
+    SUM(duration_sec) AS total_seconds
+FROM sessions
+WHERE duration_sec IS NOT NULL
+GROUP BY day, app_name
+ORDER BY day DESC, total_seconds DESC;
+
+-- Current session (for real-time tracking)
+CREATE VIEW current_session AS
+SELECT
+    s.*,
+    d.name as device_name,
+    d.os as device_os
+FROM sessions s
+JOIN devices d ON s.device_id = d.id
+WHERE s.end_time IS NULL
+ORDER BY s.start_time DESC
+LIMIT 1;
 ```
 
 ---
 
-## 5. **Platform-Specific Implementation**
+## 4. **Core Components**
 
-### 5.1 Windows Implementation
+### 4.1 App Tracking Engine (`usage.rs`)
+- **Platform Detection**: OS-specific APIs for active app monitoring
+- **Session Management**: Start/stop tracking with timing data
+- **Real-time Updates**: Event emission for UI updates
+- **Background Operation**: Continuous monitoring without UI blocking
 
+### 4.2 Block Rules Engine (`blocking.rs`)
+- **Rule Evaluation**: Check current app against blocking rules
+- **Time-based Rules**: Window-based blocking (e.g., 9am-5pm)
+- **Usage-based Rules**: Daily limit enforcement
+- **Override Management**: Handle user override requests
+
+### 4.3 Database Layer (`database.rs`)
+- **Connection Management**: SQLite pool with migrations
+- **Data Operations**: CRUD operations for all tables
+- **Sync Management**: Track sync status for cloud operations
+- **Query Optimization**: Efficient queries with proper indexing
+
+### 4.4 UI Components
+- **Dashboard**: Real-time usage display and statistics
+- **Timeline View**: Detailed session history and filtering
+- **Block Rules Manager**: Create, edit, and manage blocking rules
+- **Block Screen**: Overlay interface for blocked applications
+- **Authentication**: Supabase Auth integration
+
+---
+
+## 5. **API Specification (Tauri Commands)**
+
+### App Tracking Commands
 ```rust
-// Windows-specific app detection
-#[cfg(windows)]
-pub fn get_active_app_info() -> Result<AppInfo, Box<dyn std::error::Error>> {
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
-    
-    let hwnd = unsafe { GetForegroundWindow() };
-    let mut title = [0u16; 512];
-    let len = unsafe { GetWindowTextW(hwnd, &mut title) };
-    
-    // Extract process name and window title
-    // ...
-}
+// Get current active application
+get_active_app() -> Result<String, String>
+
+// Get active app with window title
+get_active_app_with_title() -> Result<AppInfo, String>
+
+// Check accessibility permissions
+check_accessibility_permissions_command() -> Result<bool, String>
 ```
 
-### 5.2 macOS Implementation
-
+### Database Commands
 ```rust
-// macOS-specific app detection
-#[cfg(target_os = "macos")]
-pub fn get_active_app_info() -> Result<AppInfo, Box<dyn std::error::Error>> {
-    use cocoa::appkit::NSWorkspace;
-    use cocoa::base::id;
-    
-    let workspace: id = unsafe { NSWorkspace::sharedWorkspace(nil) };
-    // Get active application info
-    // ...
-}
+// Usage data queries
+get_usage_summary_command() -> Result<UsageSummary, String>
+get_usage_summary_for_period_command(start: i64, end: i64) -> Result<Vec<UsageSummary>, String>
+get_current_session_command() -> Result<Option<Session>, String>
+get_sessions_command() -> Result<Vec<Session>, String>
+
+// Data management
+clear_all_data_command() -> Result<(), String>
+clear_all_data_and_reset_command() -> Result<(), String>
+
+// Sync operations
+sync_data_command() -> Result<(), String>
+get_unsynced_sessions_command() -> Result<Vec<Session>, String>
+test_supabase_connection_command() -> Result<bool, String>
 ```
 
-### 5.3 Linux Implementation
-
+### Blocking Commands
 ```rust
-// Linux-specific app detection (X11)
-#[cfg(target_os = "linux")]
-pub fn get_active_app_info() -> Result<AppInfo, Box<dyn std::error::Error>> {
-    use x11rb::connection::Connection;
-    use x11rb::protocol::xproto::ConnectionExt;
-    
-    // Connect to X11 and get active window
-    // ...
-}
+// Block rule management
+create_block_rule_command(rule: BlockRule) -> Result<String, String>
+get_block_rules_command() -> Result<Vec<BlockRule>, String>
+update_block_rule_command(id: String, rule: BlockRule) -> Result<(), String>
+delete_block_rule_command(id: String) -> Result<(), String>
+
+// Block evaluation and overrides
+evaluate_block_status_command(app_name: String) -> Result<BlockStatus, String>
+record_block_override_command(rule_id: String, reason: String) -> Result<(), String>
+get_block_overrides_command() -> Result<Vec<BlockOverride>, String>
 ```
 
 ---
 
-## 6. **Current Features vs. Planned Features**
+## 6. **Data Flow Architecture**
 
-### 6.1 ✅ Implemented Features
+### 6.1 Real-time App Tracking
+```mermaid
+sequenceDiagram
+    participant OS as Operating System
+    participant Rust as Rust Backend
+    participant DB as SQLite Database
+    participant UI as React Frontend
+    
+    loop Every 15 seconds
+        OS->>Rust: Get active app
+        Rust->>DB: Update session
+        Rust->>UI: Emit app change event
+        UI->>UI: Update display
+    end
+```
 
-* **Real-time app tracking** across Windows, macOS, and Linux
-* **Local SQLite storage** with session management
-* **Live dashboard** showing current active app
-* **Usage history** with daily breakdowns
-* **Device identification** with persistent device IDs
-* **Data management** (clear all data functionality)
-* **Cross-platform compatibility**
+### 6.2 Block Rule Evaluation
+```mermaid
+sequenceDiagram
+    participant UI as User Interface
+    participant Rust as Rust Backend
+    participant DB as SQLite Database
+    participant OS as Operating System
+    
+    UI->>Rust: Create block rule
+    Rust->>DB: Store rule
+    loop App tracking
+        Rust->>DB: Check rules for current app
+        alt App is blocked
+            Rust->>OS: Show overlay
+            OS->>UI: Display block screen
+        end
+    end
+```
 
-### 6.2 🔄 In Development
-
-* **Supabase integration** for cloud sync
-* **User authentication** system
-* **Real-time cross-device synchronization**
-
-### 6.3 📋 Planned Features
-
-* **App blocking** with overlay screens
-* **Emergency override** functionality
-* **Usage analytics** and productivity insights
-* **Customizable tracking** intervals
-* **Data export** capabilities
+### 6.3 Cloud Synchronization
+```mermaid
+sequenceDiagram
+    participant Local as Local SQLite
+    participant Rust as Rust Backend
+    participant Supabase as Supabase Cloud
+    participant Other as Other Devices
+    
+    Local->>Rust: Unsynced data
+    Rust->>Supabase: Push data
+    Supabase->>Other: Real-time update
+    Other->>Other: Update local state
+```
 
 ---
 
-## 7. **Security & Privacy**
+## 7. **Security Architecture**
 
-### 7.1 Data Protection
+### 7.1 Local Data Security
+- **SQLite Encryption**: Optional database encryption
+- **File System Security**: Secure storage in app data directory
+- **Process Isolation**: Tauri's secure runtime environment
 
-* **Local-first approach**: All usage data stored locally by default
-* **Optional cloud sync**: Users choose whether to sync data
-* **Row Level Security (RLS)**: Supabase enforces user data isolation
-* **Device identification**: Unique device IDs for multi-device tracking
+### 7.2 Cloud Security
+- **Supabase RLS**: Row-level security policies
+- **JWT Authentication**: Secure token-based auth
+- **HTTPS Communication**: Encrypted API communication
 
-### 7.2 Permissions Required
-
-| OS      | Permissions                          | Status |
-| ------- | ------------------------------------ | ------ |
-| Windows | None by default, admin for some apps | ✅     |
-| macOS   | Accessibility + Screen Recording     | 🔄     |
-| Linux   | X11 support; Wayland limited         | ✅     |
+### 7.3 Privacy Features
+- **Local-First**: Data stored locally by default
+- **Optional Sync**: User controls cloud synchronization
+- **Data Export**: User can export and clear data
+- **No Telemetry**: No usage analytics without consent
 
 ---
 
 ## 8. **Performance Considerations**
 
-### 8.1 Optimization Strategies
+### 8.1 Resource Usage
+- **Memory**: Efficient SQLite queries with proper indexing
+- **CPU**: Optimized app tracking intervals (15-second polling)
+- **Disk**: Minimal local storage with data retention policies
 
-* **Efficient polling**: 1-2 second intervals for app detection
-* **Local buffering**: Minimize database writes
-* **Event-driven updates**: Real-time frontend updates via Tauri events
-* **Lazy loading**: Load usage data on demand
-* **Background processing**: Non-blocking app tracking
-
-### 8.2 Resource Usage
-
-* **Memory**: Minimal overhead with efficient Rust implementation
-* **CPU**: Low impact with optimized polling intervals
-* **Storage**: Compact SQLite database with efficient indexing
-* **Network**: Optional cloud sync with configurable intervals
+### 8.2 Scalability
+- **Database**: Efficient schema design with views for common queries
+- **Sync**: Batch operations for cloud synchronization
+- **UI**: Virtualized lists for large datasets
 
 ---
 
-## 9. **Development Workflow**
+## 9. **Cross-Platform Compatibility**
 
-### 9.1 Local Development
+### 9.1 Windows
+- **App Detection**: Windows API (GetForegroundWindow, GetWindowText)
+- **Process Management**: Windows process enumeration
+- **Overlay System**: Tauri window API with Windows-specific optimizations
 
-```bash
-# Start development server
-npm run tauri dev
+### 9.2 macOS
+- **App Detection**: Accessibility APIs for app monitoring
+- **Permissions**: Accessibility permissions required
+- **Overlay System**: macOS-compatible window management
 
-# Build for production
-npm run tauri build
-
-# Platform-specific builds
-npm run tauri build -- --target x86_64-pc-windows-msvc
-npm run tauri build -- --target x86_64-apple-darwin
-npm run tauri build -- --target x86_64-unknown-linux-gnu
-```
-
-### 9.2 Testing Strategy
-
-* **Unit tests**: Rust backend functions
-* **Integration tests**: Tauri command/event system
-* **E2E tests**: Full application workflow
-* **Cross-platform testing**: Windows, macOS, Linux
+### 9.3 Linux
+- **App Detection**: X11/Wayland window management
+- **Process Monitoring**: Linux process APIs
+- **Overlay System**: Cross-platform window management
 
 ---
 
-## 10. **Future Architecture Enhancements**
+## 10. **Development & Deployment**
 
-* **Microservices**: Separate tracking, blocking, and sync services
-* **Plugin system**: Extensible app detection and blocking rules
-* **Machine learning**: Usage pattern analysis and productivity insights
-* **API integration**: Connect with productivity tools and calendars
-* **Mobile companion**: iOS/Android app for mobile usage tracking
+### 10.1 Development Environment
+- **Local Development**: Hot reload with Tauri dev server
+- **Testing**: Vitest for unit tests, Playwright for E2E
+- **Linting**: ESLint and Rust clippy for code quality
 
----
+### 10.2 Build & Distribution
+- **Tauri Builder**: Cross-platform builds for all supported OS
+- **Code Signing**: Platform-specific code signing
+- **Auto-updates**: Tauri's built-in update system
 
-**Architecture Version**: 2.0  
-**Last Updated**: December 2024  
-**Status**: Active Development
-
-- App names are now normalized and stored without file extensions for cross-platform consistency (e.g., 'chrome' instead of 'chrome.exe').
+### 10.3 Monitoring & Analytics
+- **Error Tracking**: Rust error logging and frontend error boundaries
+- **Performance Monitoring**: Built-in performance metrics
+- **User Analytics**: Optional PostHog integration (user consent required)

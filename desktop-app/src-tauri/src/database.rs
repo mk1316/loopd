@@ -121,9 +121,17 @@ impl Database {
 
         if let Some(row) = session_row {
             let start_time: DateTime<Utc> = row.get("start_time");
-            let duration_sec = (now - start_time).num_seconds();
+            let raw_duration_sec = (now - start_time).num_seconds();
+            
+            // Clamp duration to prevent negative values (common in fast app switching)
+            let duration_sec = if raw_duration_sec < 0 {
+                println!("[DB] Warning: Negative duration detected ({} seconds), clamping to 0", raw_duration_sec);
+                0
+            } else {
+                raw_duration_sec
+            };
 
-            println!("[DB] Session duration: {} seconds", duration_sec);
+            println!("[DB] Session duration: {} seconds (raw: {})", duration_sec, raw_duration_sec);
 
             let res = sqlx::query(
                 "UPDATE sessions SET end_time = ?, duration_sec = ? WHERE device_id = ? AND end_time IS NULL"
@@ -184,7 +192,15 @@ impl Database {
 
         if let Some(row) = session_row {
             let start_time: DateTime<Utc> = row.get("start_time");
-            let duration_sec = (now - start_time).num_seconds();
+            let raw_duration_sec = (now - start_time).num_seconds();
+            
+            // Clamp duration to prevent negative values (common in fast app switching)
+            let duration_sec = if raw_duration_sec < 0 {
+                println!("[DB] Warning: Negative duration detected in update_current_session ({} seconds), clamping to 0", raw_duration_sec);
+                0
+            } else {
+                raw_duration_sec
+            };
 
             sqlx::query(
                 "UPDATE sessions SET end_time = ?, duration_sec = ? WHERE device_id = ? AND end_time IS NULL"
@@ -373,6 +389,20 @@ impl Database {
         
         // Note: We do NOT delete devices to preserve the persistent device ID
         println!("[DB] All usage data cleared successfully (device ID preserved)");
+        Ok(())
+    }
+
+    pub async fn fix_negative_durations(&self) -> Result<(), sqlx::Error> {
+        println!("[DB] Fixing negative durations in database");
+        
+        // Update any sessions with negative durations to 0
+        let result = sqlx::query(
+            "UPDATE sessions SET duration_sec = 0 WHERE duration_sec < 0"
+        )
+        .execute(&self.pool)
+        .await?;
+        
+        println!("[DB] Fixed {} sessions with negative durations", result.rows_affected());
         Ok(())
     }
 
@@ -827,6 +857,35 @@ impl Database {
 
         Ok(overrides)
     }
+
+    pub async fn get_daily_usage_for_app(&self, device_id: &str, app_name: &str, date: chrono::NaiveDate) -> Result<i64, sqlx::Error> {
+        let start_of_day = date.and_hms_opt(0, 0, 0).unwrap();
+        let end_of_day = date.and_hms_opt(23, 59, 59).unwrap();
+        
+        let row = sqlx::query(
+            "SELECT COALESCE(SUM(duration_sec), 0) as total_seconds
+             FROM sessions 
+             WHERE device_id = ? 
+             AND app_name = ? 
+             AND start_time >= ? 
+             AND start_time <= ? 
+             AND duration_sec IS NOT NULL"
+        )
+        .bind(device_id)
+        .bind(app_name)
+        .bind(start_of_day)
+        .bind(end_of_day)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.get("total_seconds"))
+    }
+
+    pub async fn get_daily_usage_minutes(&self, device_id: &str, app_name: &str) -> Result<i64, sqlx::Error> {
+        let today = chrono::Local::now().date_naive();
+        let usage_seconds = self.get_daily_usage_for_app(device_id, app_name, today).await?;
+        Ok(usage_seconds / 60) // Convert seconds to minutes
+    }
 }
 
 // Tauri commands
@@ -974,4 +1033,16 @@ pub async fn patch_open_sessions_with_end_time(
     db.patch_open_sessions_with_end_time(&device_id, end_time)
         .await
         .map_err(|e| format!("Failed to patch open sessions: {}", e))
+}
+
+#[tauri::command]
+pub async fn fix_negative_durations_command(
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    db.fix_negative_durations()
+        .await
+        .map_err(|e| format!("Failed to fix negative durations: {}", e))?;
+    
+    println!("[CMD] Fixed negative durations in database");
+    Ok(())
 } 
