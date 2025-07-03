@@ -13,7 +13,6 @@ import {
   Navigation,
   SyncStatus
 } from '@/components';
-import { FixNegativeDurationsButton } from '@/components/FixNegativeDurationsButton';
 import { BlockScreen } from '@/components/BlockScreen';
 import { BlockRulesManager } from '@/components/BlockRulesManager';
 import { BlockingTest } from '@/components/BlockingTest';
@@ -94,10 +93,6 @@ function Dashboard() {
             <div className="flex items-center gap-4">
               <SyncStatus />
               <UserProfile />
-              <FixNegativeDurationsButton onFix={() => {
-                // Refresh usage data after fixing
-                window.location.reload();
-              }} />
               <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
           </div>

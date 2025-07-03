@@ -392,20 +392,6 @@ impl Database {
         Ok(())
     }
 
-    pub async fn fix_negative_durations(&self) -> Result<(), sqlx::Error> {
-        println!("[DB] Fixing negative durations in database");
-        
-        // Update any sessions with negative durations to 0
-        let result = sqlx::query(
-            "UPDATE sessions SET duration_sec = 0 WHERE duration_sec < 0"
-        )
-        .execute(&self.pool)
-        .await?;
-        
-        println!("[DB] Fixed {} sessions with negative durations", result.rows_affected());
-        Ok(())
-    }
-
     // Sync-related methods
     pub async fn get_unsynced_sessions(&self, device_id: &str) -> Result<Vec<Session>, sqlx::Error> {
         println!("[DB] Getting unsynced sessions for device: {}", device_id);
@@ -1033,16 +1019,4 @@ pub async fn patch_open_sessions_with_end_time(
     db.patch_open_sessions_with_end_time(&device_id, end_time)
         .await
         .map_err(|e| format!("Failed to patch open sessions: {}", e))
-}
-
-#[tauri::command]
-pub async fn fix_negative_durations_command(
-    db: State<'_, Db>,
-) -> Result<(), String> {
-    db.fix_negative_durations()
-        .await
-        .map_err(|e| format!("Failed to fix negative durations: {}", e))?;
-    
-    println!("[CMD] Fixed negative durations in database");
-    Ok(())
 } 

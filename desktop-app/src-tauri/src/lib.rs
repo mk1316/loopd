@@ -14,6 +14,7 @@ use crate::database::Database;
 use crate::usage::UsageTracker;
 use tokio::time::sleep;
 use uuid::Uuid;
+use tauri_plugin_store::Builder as StorePluginBuilder;
 
 /// Shared database handle stored in Tauri `State`.
 /// Keeping this alias public ensures we always use the same type everywhere
@@ -196,6 +197,11 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
             if let Ok(action) = action {
                 match action {
                     usage::UpdateAction::StartSession { app_name, window_title } => {
+                        // Exclude LockApp from being recorded
+                        if app_name == "LockApp" {
+                            println!("[TRACKER] Skipping LockApp session");
+                            continue;
+                        }
                         // Check if app has changed
                         if current_app.as_ref() != Some(&app_name) {
                             println!("[TRACKER] App switch detected: {:?} -> {:?}", current_app, app_name);
@@ -332,4 +338,13 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
             sleep(std::time::Duration::from_secs(1)).await;
         }
     });
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(StorePluginBuilder::default().build())
+        // ... existing plugins and setup ...
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

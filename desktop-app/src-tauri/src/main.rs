@@ -99,7 +99,6 @@ fn main() {
             app_lib::database::get_unsynced_sessions_command,
             app_lib::database::test_supabase_connection_command,
             app_lib::database::patch_open_sessions_with_end_time,
-            app_lib::database::fix_negative_durations_command,
             app_lib::blocking::create_block_rule_command,
             app_lib::blocking::get_block_rules_command,
             app_lib::blocking::update_block_rule_command,
