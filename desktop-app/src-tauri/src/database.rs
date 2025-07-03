@@ -539,12 +539,13 @@ impl Database {
     /// Patch all open sessions for a device by setting their end_time and duration_sec to the provided end_time
     pub async fn patch_open_sessions_with_end_time(&self, device_id: &str, end_time: DateTime<Utc>) -> Result<(), sqlx::Error> {
         // Get all open sessions for this device
-        let rows = sqlx::query("SELECT id, start_time FROM sessions WHERE device_id = ? AND end_time IS NULL")
+        let rows = sqlx::query("SELECT id, app_name, start_time FROM sessions WHERE device_id = ? AND end_time IS NULL")
             .bind(device_id)
             .fetch_all(&self.pool)
             .await?;
         for row in rows {
             let id: String = row.get("id");
+            let app_name: String = row.get("app_name");
             let start_time: DateTime<Utc> = row.get("start_time");
             let raw_duration_sec = (end_time - start_time).num_seconds();
             // Clamp duration to prevent negative values (common in fast app switching or bad end_time)
@@ -554,6 +555,13 @@ impl Database {
             } else {
                 raw_duration_sec
             };
+            println!(
+                "[PATCH] Patching session: app='{}', start_time={}, last_active_time={}, duration_sec={}",
+                app_name,
+                start_time,
+                end_time,
+                duration_sec
+            );
             sqlx::query("UPDATE sessions SET end_time = ?, duration_sec = ? WHERE id = ?")
                 .bind(end_time)
                 .bind(duration_sec)

@@ -95,6 +95,8 @@ fn main() {
                     // Use get_first_device() to get device_id
                     if let Ok(Some(device)) = db.get_first_device().await {
                         let device_id = &device.id;
+                        println!("[DEBUG] patch_open_sessions_with_end_time called from SETUP");
+                        println!("[patch_open_sessions_with_end_time] Called for device_id: {}, end_time: {}", device_id, end_time);
                         let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
                     }
                 }
@@ -125,22 +127,11 @@ fn main() {
             if let Some(db) = app_handle.try_state::<Arc<Database>>() {
                 let db = db.inner().clone();
                 tauri::async_runtime::spawn(async move {
-                    let store = StoreBuilder::new(&app_handle, "loopd-store.json")
-                        .build()
-                        .expect("Failed to build store");
-                    let last_active_time: Option<String> = store
-                        .get("lastActiveTime")
-                        .and_then(|v| v.as_str().map(|s| s.to_string()));
-                    if let Some(ref ts) = last_active_time {
-                        println!("[lastActiveTime] Backend read value: {}", ts);
-                    }
-                    if let Some(ts) = last_active_time {
-                        if let Ok(end_time) = ts.parse::<DateTime<Utc>>() {
-                            if let Ok(Some(device)) = db.get_first_device().await {
-                                let device_id = &device.id;
-                                let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
-                            }
-                        }
+                    if let Ok(Some(device)) = db.get_first_device().await {
+                        let device_id = &device.id;
+                        let end_time = chrono::Utc::now();
+                        println!("[DEBUG] patch_open_sessions_with_end_time called from WINDOW CLOSE (using current time)");
+                        let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
                     }
                 });
             }
