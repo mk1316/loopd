@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Clock, Smartphone, Monitor, Filter, Search } from 'lucide-react';
 import { useAppTracking } from '@/hooks/useAppTracking';
-import { ProtectedRoute, UserProfile, ClearDataButton, Navigation, SyncStatus } from '@/components';
+import { ProtectedRoute, UserProfile, ClearDataButton, SyncStatus } from '@/components';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -197,7 +197,6 @@ function TimelinePage() {
               <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
           </div>
-          <Navigation />
         </div>
         <div className="space-y-6">
           {/* Header */}
@@ -327,38 +326,41 @@ function TimelinePage() {
                               </Badge>
                             </div>
                             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                              {timeSlot.apps.map((app: TimelineApp, appIndex: number) => (
-                                <div
-                                  key={`${app.name}-${appIndex}`}
-                                  className="flex items-center gap-3 p-3 rounded-lg glass-effect hover:bg-white/10 transition-all duration-200 cursor-pointer group"
-                                >
+                              {[...timeSlot.apps]
+                                .sort((a, b) => b.duration - a.duration)
+                                .slice(0, 3)
+                                .map((app: TimelineApp, appIndex: number) => (
                                   <div
-                                    className={`w-8 h-8 rounded-lg ${app.color} flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}
+                                    key={`${app.name}-${appIndex}`}
+                                    className="flex items-center gap-3 p-3 rounded-lg glass-effect hover:bg-white/10 transition-all duration-200 cursor-pointer group"
                                   >
-                                    {app.name.charAt(0)}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-white text-sm truncate group-hover:text-gray-200 transition-colors">
-                                      {app.name}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-xs text-gray-400">{formatDuration(app.duration)}</span>
-                                      <span className="text-xs text-gray-500">•</span>
-                                      <div className="flex items-center gap-1">
-                                        {app.device === "Mobile" ? (
-                                          <Smartphone className="h-3 w-3 text-gray-500" />
-                                        ) : (
-                                          <Monitor className="h-3 w-3 text-gray-500" />
-                                        )}
-                                        <span className="text-xs text-gray-500">{app.device}</span>
+                                    <div
+                                      className={`w-8 h-8 rounded-lg ${app.color} flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}
+                                    >
+                                      {app.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-white text-sm truncate group-hover:text-gray-200 transition-colors">
+                                        {app.name}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs text-gray-400">{formatDuration(app.duration)}</span>
+                                        <span className="text-xs text-gray-500">•</span>
+                                        <div className="flex items-center gap-1">
+                                          {app.device === "Mobile" ? (
+                                            <Smartphone className="h-3 w-3 text-gray-500" />
+                                          ) : (
+                                            <Monitor className="h-3 w-3 text-gray-500" />
+                                          )}
+                                          <span className="text-xs text-gray-500">{app.device}</span>
+                                        </div>
                                       </div>
                                     </div>
+                                    <Badge variant="outline" className="text-xs border-white/20 bg-white/5 text-gray-400">
+                                      {app.category}
+                                    </Badge>
                                   </div>
-                                  <Badge variant="outline" className="text-xs border-white/20 bg-white/5 text-gray-400">
-                                    {app.category}
-                                  </Badge>
-                                </div>
-                              ))}
+                                ))}
                             </div>
                           </div>
                         </div>

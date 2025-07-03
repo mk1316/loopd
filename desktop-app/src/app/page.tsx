@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useAppTracking } from '@/hooks/useAppTracking';
+import { useEffect, useState } from 'react';
+import { useAppTracking, fetchUsageForDays } from '@/hooks/useAppTracking';
 import { useBlocking } from '@/hooks/useBlocking';
 import { 
   CurrentAppDisplay, 
@@ -10,7 +10,6 @@ import {
   ClearDataButton,
   ProtectedRoute,
   UserProfile,
-  Navigation,
   SyncStatus
 } from '@/components';
 import { BlockScreen } from '@/components/BlockScreen';
@@ -18,10 +17,11 @@ import { BlockRulesManager } from '@/components/BlockRulesManager';
 import { BlockingTest } from '@/components/BlockingTest';
 import { APP_CONSTANTS } from '@/lib/constants';
 import { listen } from '@tauri-apps/api/event';
+import { DatePicker } from '@/components/ui/date-picker';
 
 function Dashboard() {
   const {
-    usage,
+    usage: usageAll,
     currentApp,
     lastUpdate,
     deviceId,
@@ -36,6 +36,26 @@ function Dashboard() {
     handleOverride,
     refreshBlockingRules,
   } = useBlocking(deviceId);
+
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [usage, setUsage] = useState(usageAll);
+
+  useEffect(() => {
+    async function fetchUsage() {
+      // Always fetch 1 day (today or selected day)
+      const data = await fetchUsageForDays(1);
+      console.log('Selected date:', selectedDate);
+      if (selectedDate) {
+        const dayStr = selectedDate.toISOString().slice(0, 10);
+        console.log('Filtering for dayStr:', dayStr);
+        console.log('Fetched usage data:', data);
+        setUsage(data.filter(u => u.day === dayStr));
+      } else {
+        setUsage(data);
+      }
+    }
+    fetchUsage();
+  }, [selectedDate, deviceId]);
 
   useEffect(() => {
     // Add global click handler to debug
@@ -96,16 +116,16 @@ function Dashboard() {
               <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
             </div>
           </div>
-          
-          <Navigation />
-          
+          <div className="mb-4 flex justify-end">
+            <DatePicker date={selectedDate} setDate={setSelectedDate} />
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <CurrentAppDisplay currentApp={currentApp} lastUpdate={lastUpdate} />
             <DeviceIdDisplay deviceId={deviceId} />
           </div>
         </div>
         
-                <div className="app-container p-6 md:p-8">
+        <div className="app-container p-6 md:p-8">
           <UsageDataDisplay usage={usage} />
         </div>
         

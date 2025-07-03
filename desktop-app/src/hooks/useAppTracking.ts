@@ -262,4 +262,14 @@ export function useAppTracking() {
     evaluateBlockStatus,
     clearAllData,
   };
+}
+
+export async function fetchUsageForDays(days: number): Promise<UsageSummary[]> {
+  try {
+    const data = await invoke<UsageSummary[]>('get_usage_summary_for_period_command', { days });
+    return data;
+  } catch (e) {
+    logError(e, 'fetchUsageForDays');
+    return [];
+  }
 } 
