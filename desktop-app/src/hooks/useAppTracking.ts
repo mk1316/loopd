@@ -42,7 +42,9 @@ function getStore() {
 
 async function setLastActiveTime() {
   const store = await getStore();
-  await store.set('lastActiveTime', new Date().toISOString());
+  const now = new Date().toISOString();
+  await store.set('lastActiveTime', now);
+  console.log(`[lastActiveTime] Updated to: ${now}`);
   await store.save(); // ensure it's written to disk
 }
 

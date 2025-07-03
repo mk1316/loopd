@@ -7,6 +7,9 @@ use sqlx::SqlitePool;
 use app_lib::{database::Database, start_tracking};
 use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
+use tauri::WindowEvent;
+use tauri_plugin_store::StoreBuilder;
+use chrono::{DateTime, Utc};
 
 fn main() {
     // Define SQL migrations for the plugin
@@ -30,59 +33,121 @@ fn main() {
             Builder::default()
                 .add_migrations("sqlite:usage.db", migrations)
                 .build(),
-        );
+        )
+        .plugin(tauri_plugin_store::Builder::default().build());
+
+    // ----------------------------------------------------------------------------
+    // Setup and manage the database state before registering event handlers
+    // ----------------------------------------------------------------------------
+    let tauri_builder = tauri_builder.setup(|app| {
+        let app_handle = app.handle();
+        // Do not use app.state::<Arc<Database>>() here!
+        // Instead, use a local db variable before calling app.manage
+
+        // ----------------------------------------------------------------------------
+        // Resolve an **absolute** path for the SQLite database in the user's data dir
+        // ----------------------------------------------------------------------------
+        let mut db_dir: PathBuf = app
+            .path()
+            .app_data_dir()
+            .expect("failed to resolve app data directory");
+
+        // Ensure the directory exists
+        if let Err(e) = std::fs::create_dir_all(&db_dir) {
+            eprintln!("Failed to create data directory: {e}");
+        }
+
+        db_dir.push("usage.db");
+
+        let db_path = db_dir;
+
+        // Build a sqlx connection string that matches the plugin connection string
+        // The plugin will resolve "sqlite:usage.db" relative to AppConfig, so we do the same.
+        let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+        // Connect the pool (will create the file if missing)
+        let pool = tauri::async_runtime::block_on(async {
+            SqlitePool::connect(&db_url)
+                .await
+                .expect("Failed to connect to SQLite database")
+        });
+
+        // Note: tauri_plugin_sql handles migrations automatically
+        // No need for additional sqlx::migrate! call
+
+        // Wrap the Database in an Arc so it can be shared safely
+        let db = Arc::new(Database::new(pool));
+
+        // --- Use the local db variable for any setup work before manage ---
+        tauri::async_runtime::block_on(async {
+            // Load lastActiveTime from store
+            let store = StoreBuilder::new(app_handle, "loopd-store.json")
+                .build()
+                .expect("Failed to build store");
+            let last_active_time: Option<String> = store
+                .get("lastActiveTime")
+                .and_then(|v| v.as_str().map(|s| s.to_string()));
+            if let Some(ref ts) = last_active_time {
+                println!("[lastActiveTime] Backend read value: {}", ts);
+            }
+            if let Some(ts) = last_active_time {
+                if let Ok(end_time) = ts.parse::<DateTime<Utc>>() {
+                    // Use get_first_device() to get device_id
+                    if let Ok(Some(device)) = db.get_first_device().await {
+                        let device_id = &device.id;
+                        let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
+                    }
+                }
+            }
+        });
+
+        // Make the Database available as managed state for commands
+        app.manage(db.clone());
+
+        // Start background tracking, passing the same Arc
+        start_tracking(db.clone(), app.handle().clone());
+
+        // Open devtools in debug mode
+        #[cfg(debug_assertions)]
+        {
+            let window = app.get_webview_window("main").unwrap();
+            window.open_devtools();
+        }
+
+        Ok(())
+    });
+
+    // Register the window event handler after setup
+    let tauri_builder = tauri_builder.on_window_event(|window, event| {
+        if let WindowEvent::CloseRequested { .. } = event {
+            let app_handle = window.app_handle().clone();
+            // Only try to access the state if it is available
+            if let Some(db) = app_handle.try_state::<Arc<Database>>() {
+                let db = db.inner().clone();
+                tauri::async_runtime::spawn(async move {
+                    let store = StoreBuilder::new(&app_handle, "loopd-store.json")
+                        .build()
+                        .expect("Failed to build store");
+                    let last_active_time: Option<String> = store
+                        .get("lastActiveTime")
+                        .and_then(|v| v.as_str().map(|s| s.to_string()));
+                    if let Some(ref ts) = last_active_time {
+                        println!("[lastActiveTime] Backend read value: {}", ts);
+                    }
+                    if let Some(ts) = last_active_time {
+                        if let Ok(end_time) = ts.parse::<DateTime<Utc>>() {
+                            if let Ok(Some(device)) = db.get_first_device().await {
+                                let device_id = &device.id;
+                                let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
 
     tauri_builder
-        .setup(|app| {
-            tauri::async_runtime::block_on(async {
-                // ----------------------------------------------------------------------------
-                // Resolve an **absolute** path for the SQLite database in the user's data dir
-                // ----------------------------------------------------------------------------
-                let mut db_dir: PathBuf = app
-                    .path()
-                    .app_data_dir()
-                    .expect("failed to resolve app data directory");
-
-                // Ensure the directory exists
-                if let Err(e) = std::fs::create_dir_all(&db_dir) {
-                    eprintln!("Failed to create data directory: {e}");
-                }
-
-                db_dir.push("usage.db");
-
-                let db_path = db_dir;
-
-                // Build a sqlx connection string that matches the plugin connection string
-                // The plugin will resolve "sqlite:usage.db" relative to AppConfig, so we do the same.
-                let db_url = format!("sqlite://{}", db_path.to_string_lossy());
-
-                // Connect the pool (will create the file if missing)
-                let pool = SqlitePool::connect(&db_url)
-                    .await
-                    .expect("Failed to connect to SQLite database");
-
-                // Note: tauri_plugin_sql handles migrations automatically
-                // No need for additional sqlx::migrate! call
-
-                // Wrap the Database in an Arc so it can be shared safely
-                let db = Arc::new(Database::new(pool));
-
-                // Make the Database available as managed state for commands
-                app.manage(db.clone());
-
-                // Start background tracking, passing the same Arc
-                start_tracking(db.clone(), app.handle().clone());
-            });
-
-            // Open devtools in debug mode
-            #[cfg(debug_assertions)]
-            {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
-            }
-
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             app_lib::usage::get_active_app,
             app_lib::usage::get_active_app_with_title,

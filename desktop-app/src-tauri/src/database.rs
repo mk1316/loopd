@@ -546,7 +546,14 @@ impl Database {
         for row in rows {
             let id: String = row.get("id");
             let start_time: DateTime<Utc> = row.get("start_time");
-            let duration_sec = (end_time - start_time).num_seconds();
+            let raw_duration_sec = (end_time - start_time).num_seconds();
+            // Clamp duration to prevent negative values (common in fast app switching or bad end_time)
+            let duration_sec = if raw_duration_sec < 0 {
+                println!("[DB] Warning: Negative duration detected in patch_open_sessions_with_end_time ({} seconds), clamping to 0", raw_duration_sec);
+                0
+            } else {
+                raw_duration_sec
+            };
             sqlx::query("UPDATE sessions SET end_time = ?, duration_sec = ? WHERE id = ?")
                 .bind(end_time)
                 .bind(duration_sec)
