@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Calendar, PanelLeft } from 'lucide-react';
+import { LayoutGrid, Calendar, PanelLeft, Settings as SettingsIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function Sidebar() {
@@ -27,6 +27,11 @@ export function Sidebar() {
       href: '/timeline',
       label: 'Timeline',
       icon: Calendar,
+    },
+    {
+      href: '/settings',
+      label: 'Settings',
+      icon: SettingsIcon,
     },
   ];
 

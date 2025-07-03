@@ -1,3 +1,4 @@
+'use client';
 // useAppTracking.ts
 //
 // Tracking and Reconciliation Logic

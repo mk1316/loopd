@@ -7,10 +7,10 @@ import {
   CurrentAppDisplay, 
   DeviceIdDisplay, 
   UsageDataDisplay, 
-  ClearDataButton,
   ProtectedRoute,
+  SyncStatus,
   UserProfile,
-  SyncStatus
+  ClearDataButton
 } from '@/components';
 import { BlockScreen } from '@/components/BlockScreen';
 import { BlockRulesManager } from '@/components/BlockRulesManager';
@@ -97,6 +97,11 @@ function Dashboard() {
     };
   }, []);
 
+  // Calculate total usage for the selected day
+  const totalUsageSeconds = usage.reduce((sum, u) => sum + u.total_seconds, 0);
+  const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
+  const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -110,11 +115,6 @@ function Dashboard() {
                 {APP_CONSTANTS.DESCRIPTION}
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <SyncStatus />
-              <UserProfile />
-              <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
-            </div>
           </div>
           <div className="mb-4 flex justify-end">
             <DatePicker date={selectedDate} setDate={setSelectedDate} />
@@ -122,6 +122,23 @@ function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <CurrentAppDisplay currentApp={currentApp} lastUpdate={lastUpdate} />
             <DeviceIdDisplay deviceId={deviceId} />
+            <div className="active-app-card rounded-xl p-6 h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse"></div>
+                <h2 className="text-xl font-semibold text-blue-300">
+                  Total Usage Today
+                </h2>
+              </div>
+              <p className="app-name text-2xl font-mono mb-3">{totalUsageHours}h {totalUsageMinutes}m</p>
+              {selectedDate && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-blue-400/70">Date:</span>
+                  <span className="text-sm text-blue-300 font-mono">
+                    {selectedDate.toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
