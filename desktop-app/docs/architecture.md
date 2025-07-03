@@ -234,59 +234,6 @@ get_block_overrides_command() -> Result<Vec<BlockOverride>, String>
 
 ---
 
-## 6. **Data Flow Architecture**
-
-### 6.1 Real-time App Tracking
-```mermaid
-sequenceDiagram
-    participant OS as Operating System
-    participant Rust as Rust Backend
-    participant DB as SQLite Database
-    participant UI as React Frontend
-    
-    loop Every 15 seconds
-        OS->>Rust: Get active app
-        Rust->>DB: Update session
-        Rust->>UI: Emit app change event
-        UI->>UI: Update display
-    end
-```
-
-### 6.2 Block Rule Evaluation
-```mermaid
-sequenceDiagram
-    participant UI as User Interface
-    participant Rust as Rust Backend
-    participant DB as SQLite Database
-    participant OS as Operating System
-    
-    UI->>Rust: Create block rule
-    Rust->>DB: Store rule
-    loop App tracking
-        Rust->>DB: Check rules for current app
-        alt App is blocked
-            Rust->>OS: Show overlay
-            OS->>UI: Display block screen
-        end
-    end
-```
-
-### 6.3 Cloud Synchronization
-```mermaid
-sequenceDiagram
-    participant Local as Local SQLite
-    participant Rust as Rust Backend
-    participant Supabase as Supabase Cloud
-    participant Other as Other Devices
-    
-    Local->>Rust: Unsynced data
-    Rust->>Supabase: Push data
-    Supabase->>Other: Real-time update
-    Other->>Other: Update local state
-```
-
----
-
 ## 6. **Component Design Patterns**
 
 Loopd's React components follow best practices for maintainability and scalability. Key guidelines:
