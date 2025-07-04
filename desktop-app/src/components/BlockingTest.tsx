@@ -58,8 +58,8 @@ export function BlockingTest({ deviceId }: BlockingTestProps) {
   };
 
   useEffect(() => {
-    let unlistenBlocked: any;
-    let unlistenUnblocked: any;
+    let unlistenBlocked: (() => void) | undefined;
+    let unlistenUnblocked: (() => void) | undefined;
     listen("app_blocked", () => {
       setFade(false);
       setBlocked(true);
@@ -178,7 +178,7 @@ export function BlockingTest({ deviceId }: BlockingTestProps) {
         <div className="text-xs text-gray-500 mt-4">
           <p><strong>Instructions:</strong></p>
           <ol className="list-decimal list-inside space-y-1 mt-2">
-            <li>Enter an app name (e.g., "notepad" for Windows)</li>
+            <li>Enter an app name (e.g., &quot;notepad&quot; for Windows)</li>
             <li>Choose block type and configure settings</li>
             <li>Create the test rule</li>
             <li>Try to open the blocked app</li>

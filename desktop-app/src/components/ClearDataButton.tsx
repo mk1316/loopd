@@ -1,7 +1,7 @@
 import { ClearDataButtonProps } from '@/types';
-import { APP_CONSTANTS } from '@/lib/constants';
+// import { APP_CONSTANTS } from '@/lib/constants'; // Removed unused import
 
-export function ClearDataButton({ onClear, isClearing }: ClearDataButtonProps) {
+export function ClearDataButton({ isClearing }: Omit<ClearDataButtonProps, 'onClear'>) {
   const testClearCommand = async () => {
     try {
       console.log('ClearDataButton: Testing clear command directly...');

@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { invoke } from '@tauri-apps/api/core'
 import { mockBlockRules, mockUsageData, mockBlockStatus } from '../fixtures/block-rules'
 
 export const mockTauriCommands = {
@@ -15,10 +16,9 @@ export const mockTauriCommands = {
 
 // Setup mocks
 export const setupTauriMocks = () => {
-  const { invoke } = require('@tauri-apps/api/core')
   // Directly assign mockImplementation
-  invoke.mockImplementation?.((command: string, ...args: any[]) => {
-    const commandMap: Record<string, any> = {
+  vi.mocked(invoke).mockImplementation((command: string) => {
+    const commandMap: Record<string, unknown> = {
       'get_active_app': mockTauriCommands.get_active_app,
       'get_block_rules': mockTauriCommands.get_block_rules_command,
       'create_block_rule': mockTauriCommands.create_block_rule_command,
@@ -31,8 +31,9 @@ export const setupTauriMocks = () => {
     }
     const mockFn = commandMap[command]
     if (mockFn) {
-      return mockFn(...args)
+      // If it's a mock function, call it and return its result as a Promise
+      return Promise.resolve(typeof mockFn === 'function' ? (mockFn as () => unknown)() : mockFn)
     }
-    throw new Error(`Unknown Tauri command: ${command}`)
+    return Promise.reject(new Error(`Unknown Tauri command: ${command}`))
   })
 } 

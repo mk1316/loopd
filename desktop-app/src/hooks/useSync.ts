@@ -10,6 +10,19 @@ export interface SyncStatus {
   error: string | null;
 }
 
+// Add Session interface for unsynced sessions
+export interface Session {
+  id: string;
+  device_id: string;
+  user_id: string | null;
+  app_name: string;
+  window_title: string;
+  start_time: string;
+  end_time: string | null;
+  duration_sec: number;
+  created_at: string;
+}
+
 export function useSync() {
   const { user, session } = useUser();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
@@ -39,7 +52,7 @@ export function useSync() {
     if (!deviceId) return;
 
     try {
-      const unsyncedSessions = await invoke<any[]>('get_unsynced_sessions_command', { deviceId });
+      const unsyncedSessions = await invoke<Session[]>('get_unsynced_sessions_command', { deviceId });
       setSyncStatus(prev => ({
         ...prev,
         unsyncedCount: unsyncedSessions.length,

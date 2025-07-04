@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 use tauri::WindowEvent;
 use tauri_plugin_store::StoreBuilder;
-use tauri_plugin_updater::UpdaterPlugin;
+use tauri_plugin_updater::UpdaterExt;
 use chrono::{DateTime, Utc};
 
 fn main() {
@@ -36,7 +36,7 @@ fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(UpdaterPlugin::default());
+        .plugin(tauri_plugin_updater::Builder::new().build());
 
     // ----------------------------------------------------------------------------
     // Setup and manage the database state before registering event handlers

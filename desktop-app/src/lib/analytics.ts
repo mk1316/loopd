@@ -32,8 +32,7 @@ export const calculateUsageStats = (
     app_name: string;
     duration_seconds: number;
     start_time: string;
-  }>,
-  timeRange: 'day' | 'week' | 'month' = 'day'
+  }>
 ): UsageStats => {
   if (sessions.length === 0) {
     return {

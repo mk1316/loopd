@@ -59,7 +59,7 @@ export function useUpdater() {
       unlistenFns.push(unlistenUpdateDownloaded);
 
       // Update installed
-      const unlistenUpdateInstalled = await listen('update-installed', (event) => {
+      const unlistenUpdateInstalled = await listen('update-installed', () => {
         setStatus(prev => ({
           ...prev,
           isInstalling: false,

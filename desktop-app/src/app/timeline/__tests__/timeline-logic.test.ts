@@ -1,7 +1,29 @@
 import { describe, it, expect } from 'vitest';
 
+interface Session {
+  id: string;
+  device_id: string;
+  user_id: string | null;
+  app_name: string;
+  window_title: string;
+  start_time: string;
+  end_time: string;
+  duration_sec: number;
+  created_at: string;
+}
+
+interface TimelineApp {
+  name: string;
+  duration: number;
+}
+
+interface TimelineSlot {
+  hour: number;
+  apps: Record<string, TimelineApp>;
+}
+
 // Mock session data for testing
-const mockSessions = [
+const mockSessions: Session[] = [
   {
     id: '1',
     device_id: 'test-device',
@@ -38,8 +60,8 @@ const mockSessions = [
 ];
 
 // Simplified version of the timeline logic for testing
-function calculateTimelineData(sessions: any[]) {
-  const timelineSlots: Record<string, { hour: number; apps: Record<string, any> }> = {};
+function calculateTimelineData(sessions: Session[]): Record<string, TimelineSlot> {
+  const timelineSlots: Record<string, TimelineSlot> = {};
   
   // Initialize timeline data for all 24 hours
   for (let hour = 0; hour < 24; hour++) {
@@ -76,11 +98,11 @@ function calculateTimelineData(sessions: any[]) {
 
   // Validate and cap durations to ensure no hour exceeds 60 minutes
   Object.values(timelineSlots).forEach(slot => {
-    const totalMinutes = Object.values(slot.apps).reduce((sum: number, app: any) => sum + app.duration, 0);
+    const totalMinutes = Object.values(slot.apps).reduce((sum: number, app: TimelineApp) => sum + app.duration, 0);
     if (totalMinutes > 60) {
       // Scale down all app durations proportionally to fit within 60 minutes
       const scaleFactor = 60 / totalMinutes;
-      Object.values(slot.apps).forEach((app: any) => {
+      Object.values(slot.apps).forEach((app: TimelineApp) => {
         app.duration = Math.round(app.duration * scaleFactor);
       });
     }
@@ -94,7 +116,7 @@ describe('Timeline Logic', () => {
     const timelineData = calculateTimelineData(mockSessions);
     // Find the local hour keys for the test sessions
     const start = new Date(mockSessions[0].start_time);
-    const end = new Date(mockSessions[0].end_time);
+    // const end = new Date(mockSessions[0].end_time); // Removed unused
     
     // Convert to 12-hour format
     const getDisplayHour = (hour: number) => hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
@@ -131,14 +153,14 @@ describe('Timeline Logic', () => {
   it('should ensure no hour exceeds 60 minutes total', () => {
     const timelineData = calculateTimelineData(mockSessions);
     Object.values(timelineData).forEach(slot => {
-      const totalMinutes = Object.values(slot.apps).reduce((sum: number, app: any) => sum + app.duration, 0);
+      const totalMinutes = Object.values(slot.apps).reduce((sum: number, app: TimelineApp) => sum + app.duration, 0);
       expect(totalMinutes).toBeLessThanOrEqual(60);
     });
   });
 
   it('should handle overlapping sessions in the same hour (local time)', () => {
     // Create sessions that overlap in the 10:00 AM hour
-    const overlappingSessions = [
+    const overlappingSessions: Session[] = [
       {
         id: '1',
         device_id: 'test-device',
@@ -170,7 +192,7 @@ describe('Timeline Logic', () => {
     const getAMPM = (hour: number) => hour < 12 ? 'AM' : 'PM';
     
     const hourKey = `${getDisplayHour(start.getHours())}:00 ${getAMPM(start.getHours())}`;
-    const totalMinutes = Object.values(timelineData[hourKey].apps).reduce((sum: number, app: any) => sum + app.duration, 0);
+    const totalMinutes = Object.values(timelineData[hourKey].apps).reduce((sum: number, app: TimelineApp) => sum + app.duration, 0);
     expect(totalMinutes).toBeLessThanOrEqual(60);
     expect(timelineData[hourKey].apps['VS Code']).toBeDefined();
     expect(timelineData[hourKey].apps['Chrome']).toBeDefined();

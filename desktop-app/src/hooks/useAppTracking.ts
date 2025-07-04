@@ -28,7 +28,7 @@ import { load } from '@tauri-apps/plugin-store';
 // TypeScript declaration for Tauri global
 declare global {
   interface Window {
-    __TAURI__?: any;
+    __TAURI__?: unknown;
   }
 }
 

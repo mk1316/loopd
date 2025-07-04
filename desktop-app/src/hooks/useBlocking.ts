@@ -5,7 +5,6 @@ import { BlockStatus } from '@/types';
 
 export function useBlocking(deviceId: string) {
   const [currentBlockStatus, setCurrentBlockStatus] = useState<BlockStatus | null>(null);
-  const [isBlockingEnabled, setIsBlockingEnabled] = useState(true);
 
   useEffect(() => {
     // Listen for app blocked events
@@ -65,7 +64,7 @@ export function useBlocking(deviceId: string) {
 
   return {
     currentBlockStatus,
-    isBlockingEnabled,
+    isBlockingEnabled: true,
     handleOverride,
     terminateBlockedApp,
     refreshBlockingRules,

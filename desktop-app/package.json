@@ -8,7 +8,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "export": "next export",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

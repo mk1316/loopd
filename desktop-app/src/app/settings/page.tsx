@@ -10,7 +10,7 @@ import { useAppTracking } from '@/hooks/useAppTracking';
 import { useUser } from '@/contexts/UserContext';
 
 export default function SettingsPage() {
-  const { clearAllData, isClearing, deviceId } = useAppTracking();
+  const { isClearing, deviceId } = useAppTracking();
   const { user } = useUser();
 
   return (
@@ -45,7 +45,7 @@ export default function SettingsPage() {
         {/* Danger Zone */}
         <div className="settings-card bg-slate-800 rounded-lg p-6 shadow-lg">
           <h2 className="text-xl font-semibold text-red-400 mb-4">Danger Zone</h2>
-          <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
+          <ClearDataButton isClearing={isClearing} />
         </div>
       </div>
     </div>

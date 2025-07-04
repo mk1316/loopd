@@ -3,12 +3,11 @@
 import { useState, useMemo } from 'react';
 import { Clock, Smartphone, Monitor, Filter, Search } from 'lucide-react';
 import { useAppTracking } from '@/hooks/useAppTracking';
-import { ProtectedRoute, UserProfile, ClearDataButton, SyncStatus } from '@/components';
+import { ProtectedRoute } from '@/components';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
-import { format } from 'date-fns';
 
 interface TimelineApp {
   name: string;
@@ -19,17 +18,9 @@ interface TimelineApp {
   windowTitle?: string;
 }
 
-interface TimelineSlot {
-  time: string;
-  hour: number;
-  apps: TimelineApp[];
-}
-
 function TimelinePage() {
   const {
     sessions,
-    isClearing,
-    clearAllData,
   } = useAppTracking();
 
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -118,10 +109,10 @@ function TimelinePage() {
 
     // Validate and cap durations to ensure no hour exceeds 60 minutes
     Object.values(timelineSlots).forEach(slot => {
-      const totalMinutes = Object.values(slot.apps).reduce((sum, app) => sum + app.duration, 0);
-      if (totalMinutes > 60) {
+      const total = Object.values(slot.apps).reduce((sum, app) => sum + app.duration, 0);
+      if (total > 60) {
         // Scale down all app durations proportionally to fit within 60 minutes
-        const scaleFactor = 60 / totalMinutes;
+        const scaleFactor = 60 / total;
         Object.values(slot.apps).forEach(app => {
           app.duration = Math.round(app.duration * scaleFactor);
         });
@@ -178,7 +169,6 @@ function TimelinePage() {
   const summaryStats = useMemo(() => {
     if (!filteredTimelineData.length) return null;
     const allApps = filteredTimelineData.flatMap(slot => slot.apps);
-    const totalMinutes = allApps.reduce((total, app) => total + app.duration, 0);
     // Most active hour
     const mostActiveHour = filteredTimelineData.reduce((max, slot) => {
       const totalMinutes = getTotalTimeForHour(slot.apps);

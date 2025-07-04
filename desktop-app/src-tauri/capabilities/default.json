@@ -10,6 +10,7 @@
     "sql:default",
     "sql:allow-execute",
     "sql:allow-select",
-    "store:default"
+    "store:default",
+    "updater:default"
   ]
 }

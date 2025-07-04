@@ -1,7 +1,7 @@
 'use client';
 
 import { Session } from '@/types';
-import { formatTime } from '@/lib/timeUtils';
+// import { formatTime } from '@/lib/timeUtils'; // Removed unused import
 import React from 'react';
 
 interface TimelineViewProps {
@@ -100,7 +100,7 @@ export function TimelineView({ sessions, selectedDate }: TimelineViewProps) {
             <div className="flex flex-col gap-6">
               {groupedSessions[day]
                 .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-                .map((session, idx) => {
+                .map((session) => {
                   const startTime = new Date(session.start_time);
                   const endTime = session.end_time ? new Date(session.end_time) : null;
                   const duration = endTime ? Math.floor((endTime.getTime() - startTime.getTime()) / 1000) : null;
