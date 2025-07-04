@@ -74,6 +74,7 @@ jobs:
             - Cross-platform app usage tracking
             - Real-time dashboard updates
             - Local SQLite storage
+            - Automatic app updates
             
             ### 🔧 Improvements
             - Performance optimizations
