@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabaseClient';
+import { getClient } from '@/lib/supabaseClient';
 
-const supabase = createClient();
+const supabase = getClient();
 
 interface ValidationErrors {
   email?: string;

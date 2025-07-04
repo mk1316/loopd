@@ -19,7 +19,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { UsageSummary, Session, BlockRule, BlockStatus } from '@/types';
+import { Session, BlockRule, BlockStatus } from '@/types';
 import { REFRESH_INTERVAL } from '@/lib/constants';
 import { getCurrentTimeString } from '@/lib/timeUtils';
 import { logError } from '@/lib/errorHandling';
@@ -55,7 +55,6 @@ async function getLastActiveTime(): Promise<string | null> {
 }
 
 export function useAppTracking() {
-  const [usage, setUsage] = useState<UsageSummary[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentApp, setCurrentApp] = useState<string>('Unknown');
   const [lastUpdate, setLastUpdate] = useState<string>('');
@@ -101,16 +100,7 @@ export function useAppTracking() {
     };
   }, []);
 
-  const fetchUsage = async () => {
-    try {
-      const data = await invoke<UsageSummary[]>('get_usage_summary');
-      setUsage(data);
-      setLastUpdate(getCurrentTimeString());
-    } catch (e) {
-      logError(e, 'fetchUsage');
-      setUsage([]);
-    }
-  };
+
 
   const fetchSessions = async () => {
     try {
@@ -193,7 +183,6 @@ export function useAppTracking() {
       console.log('clearAllData: Command result:', result);
       
       console.log('clearAllData: All data cleared and tracking reset successfully');
-      setUsage([]);
       setSessions([]);
       setLastUpdate(getCurrentTimeString());
     } catch (e) {
@@ -209,19 +198,16 @@ export function useAppTracking() {
 
   useEffect(() => {
     // Initial data fetch
-    fetchUsage();
     fetchCurrentApp();
     fetchDeviceId();
 
     // Set up event listener for app switches
     const unlistenPromise = listen('switched', () => {
-      fetchUsage();
       fetchCurrentApp();
     });
 
     // Set up interval for periodic updates
     const interval = setInterval(() => {
-      fetchUsage();
       fetchCurrentApp();
     }, REFRESH_INTERVAL);
 
@@ -246,7 +232,6 @@ export function useAppTracking() {
   }, [currentApp, blockRules, isBlockingEnabled]);
 
   return {
-    usage,
     sessions,
     currentApp,
     lastUpdate,
@@ -255,7 +240,6 @@ export function useAppTracking() {
     blockRules,
     currentBlockStatus,
     isBlockingEnabled,
-    fetchUsage,
     fetchSessions,
     fetchCurrentApp,
     fetchDeviceId,
@@ -265,12 +249,4 @@ export function useAppTracking() {
   };
 }
 
-export async function fetchUsageForDays(days: number): Promise<UsageSummary[]> {
-  try {
-    const data = await invoke<UsageSummary[]>('get_usage_summary_for_period_command', { days });
-    return data;
-  } catch (e) {
-    logError(e, 'fetchUsageForDays');
-    return [];
-  }
-} 
+ 
