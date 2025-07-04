@@ -1,8 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Calendar, PanelLeft, Settings as SettingsIcon, Shield } from 'lucide-react';
+import { LayoutGrid, Calendar, PanelLeft, Settings as SettingsIcon, Shield, Minimize2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+// Use the correct Tauri v2 import
+import { invoke } from '@tauri-apps/api/core';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -82,6 +84,29 @@ export function Sidebar() {
           );
         })}
       </nav>
+      
+      {/* Minimize to tray button */}
+      <div className="mt-auto pt-4 border-t border-slate-800">
+        <button
+          onClick={async () => {
+            console.log('Minimize to tray button clicked');
+            try {
+              console.log('Calling minimize_to_tray command...');
+              await invoke('minimize_to_tray');
+              console.log('minimize_to_tray command executed successfully');
+            } catch (error) {
+              console.error('Failed to minimize to tray:', error);
+            }
+          }}
+          className={`flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200
+            text-slate-300 hover:bg-slate-800 hover:text-white w-full
+            ${collapsed ? 'justify-center px-0' : ''}`}
+          title={collapsed ? 'Minimize to tray' : undefined}
+        >
+          <Minimize2 className="h-5 w-5" />
+          {!collapsed && 'Minimize to Tray'}
+        </button>
+      </div>
     </aside>
   );
 }

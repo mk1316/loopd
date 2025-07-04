@@ -95,30 +95,6 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
     }
   };
 
-  const testTauriInvoke = async () => {
-    try {
-      console.log('TestInvoke: Testing Tauri invoke...');
-      const { invoke } = await import('@tauri-apps/api/core');
-      console.log('TestInvoke: invoke function available:', typeof invoke);
-      console.log('TestInvoke: window.__TAURI__ available:', !!window.__TAURI__);
-      
-      const result = await invoke('test_command');
-      console.log('TestInvoke: Test command result:', result);
-      
-      // Also test database connection
-      console.log('TestInvoke: Testing database connection...');
-      const dbResult = await invoke('test_database_connection_command');
-      console.log('TestInvoke: Database test result:', dbResult);
-      
-      alert('Tauri invoke and database are working!');
-    } catch (error) {
-      console.error('TestInvoke: Tauri invoke test failed:', error);
-      console.error('TestInvoke: Error type:', typeof error);
-      console.error('TestInvoke: Error message:', error instanceof Error ? error.message : String(error));
-      alert(`Tauri invoke test failed: ${error}`);
-    }
-  };
-
   const handleDeleteRule = async (ruleId: string) => {
     console.log('DeleteRule: Delete button clicked for rule:', ruleId);
     
@@ -184,19 +160,9 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Block Rules</h2>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={testTauriInvoke}
-            className="text-xs"
-          >
-            Test Invoke
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            Add Block Rule
-          </Button>
-        </div>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          Add Block Rule
+        </Button>
       </div>
 
       <div className="grid gap-4">
