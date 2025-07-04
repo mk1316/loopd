@@ -1,22 +1,18 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useAppTracking, fetchUsageForDays } from '@/hooks/useAppTracking';
+import { useState, useMemo } from 'react';
+import { useAppTracking } from '@/hooks/useAppTracking';
 import { useBlocking } from '@/hooks/useBlocking';
 import { 
   CurrentAppDisplay, 
-  DeviceIdDisplay, 
   UsageDataDisplay, 
   ProtectedRoute,
   SyncStatus,
   UserProfile,
   ClearDataButton
 } from '@/components';
-import { BlockScreen } from '@/components/BlockScreen';
-import { BlockRulesManager } from '@/components/BlockRulesManager';
 import { BlockingTest } from '@/components/BlockingTest';
 import { APP_CONSTANTS } from '@/lib/constants';
-import { listen } from '@tauri-apps/api/event';
 import { DatePicker } from '@/components/ui/date-picker';
 
 function Dashboard() {
@@ -71,74 +67,43 @@ function Dashboard() {
   const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
   const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
 
-  useEffect(() => {
-    // Add global click handler to debug
-    const handleGlobalClick = (event: MouseEvent) => {
-      console.log('Global click detected:', event.target);
-      console.log('Click coordinates:', event.clientX, event.clientY);
-    };
-
-    // Add Tauri event listener test
-    const setupTauriEvents = async () => {
-      try {
-        console.log('Setting up Tauri event listener...');
-        await listen('test-event', (event) => {
-          console.log('Tauri event received:', event);
-        });
-        console.log('Tauri event listener set up successfully');
-        
-        // Test emit after 2 seconds
-        setTimeout(async () => {
-          try {
-            console.log('Testing Tauri event emit...');
-            const { emit } = await import('@tauri-apps/api/event');
-            await emit('test-event', { message: 'Hello from frontend!' });
-            console.log('Tauri event emit test completed');
-          } catch (error) {
-            console.error('Tauri event emit test failed:', error);
-          }
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to set up Tauri event listener:', error);
-      }
-    };
-
-    document.addEventListener('click', handleGlobalClick);
-    setupTauriEvents();
-    
-    return () => {
-      document.removeEventListener('click', handleGlobalClick);
-    };
-  }, []);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        {/* Header Section */}
         <div className="app-container p-6 md:p-8 mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div className="flex flex-col">
-              <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+            <div className="flex-1">
+              <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">
                 {APP_CONSTANTS.TITLE}
               </h1>
               <p className="text-lg md:text-xl text-slate-300 font-medium">
                 {APP_CONSTANTS.DESCRIPTION}
               </p>
             </div>
+            <div className="flex items-center gap-4">
+              <UserProfile />
+              <SyncStatus />
+            </div>
           </div>
-          <div className="mb-4 flex justify-end">
+          
+          {/* Date Selector */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-white">Usage Overview</h2>
             <DatePicker date={selectedDate} setDate={setSelectedDate} />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Stats Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <CurrentAppDisplay currentApp={currentApp} lastUpdate={lastUpdate} />
-            <DeviceIdDisplay deviceId={deviceId} />
             <div className="active-app-card rounded-xl p-6 h-full">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse"></div>
                 <h2 className="text-xl font-semibold text-blue-300">
-                  Total Usage Today
+                  Total Usage
                 </h2>
               </div>
-              <p className="app-name text-2xl font-mono mb-3">{totalUsageHours}h {totalUsageMinutes}m</p>
+              <p className="app-name text-3xl font-mono mb-3">{totalUsageHours}h {totalUsageMinutes}m</p>
               {selectedDate && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-blue-400/70">Date:</span>
@@ -151,37 +116,25 @@ function Dashboard() {
           </div>
         </div>
         
-        <div className="app-container p-6 md:p-8">
-          <UsageDataDisplay usage={usage} />
-        </div>
-        
-        <div className="app-container p-6 md:p-8">
-          <BlockRulesManager 
-            blockRules={blockRules} 
-            deviceId={deviceId} 
-            onRefresh={() => {
-              fetchBlockRules();
-              refreshBlockingRules();
-            }}
-          />
+        {/* Usage Data Section */}
+        <div className="app-container p-6 md:p-8 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-white">App Usage Details</h2>
+            <div className="text-sm text-slate-400">
+              {usage.length} app{usage.length !== 1 ? 's' : ''} tracked
+            </div>
+          </div>
+          <UsageDataDisplay usage={usage} sessions={sessions} />
         </div>
 
         {/* Development Testing Component */}
         {process.env.NODE_ENV === 'development' && (
           <div className="app-container p-6 md:p-8">
+            <h2 className="text-xl font-semibold text-white mb-4">Development Tools</h2>
             <BlockingTest deviceId={deviceId} />
           </div>
         )}
       </div>
-      
-      {/* Block Screen Overlay */}
-      {currentBlockStatus?.is_blocked && (
-        <BlockScreen 
-          blockStatus={currentBlockStatus} 
-          deviceId={deviceId}
-          onOverride={handleOverride}
-        />
-      )}
     </div>
   );
 }

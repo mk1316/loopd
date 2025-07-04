@@ -87,6 +87,7 @@ export interface DeviceIdDisplayProps {
 
 export interface UsageDataDisplayProps {
   usage: UsageSummary[];
+  sessions?: Session[];
 }
 
 export interface TimelineViewProps {

@@ -3,12 +3,13 @@ import React from 'react';
 import { SyncStatus } from '@/components/SyncStatus';
 import { ClearDataButton } from '@/components/ClearDataButton';
 import { UserProfile } from '@/components/UserProfile';
+import { DeviceIdDisplay } from '@/components/DeviceIdDisplay';
 import CustomAuthForm from '@/components/CustomAuthForm';
 import { useAppTracking } from '@/hooks/useAppTracking';
 import { useUser } from '@/contexts/UserContext';
 
 export default function SettingsPage() {
-  const { clearAllData, isClearing } = useAppTracking();
+  const { clearAllData, isClearing, deviceId } = useAppTracking();
   const { user } = useUser();
 
   return (
@@ -20,6 +21,12 @@ export default function SettingsPage() {
         <div className="settings-card bg-slate-800 rounded-lg p-6 shadow-lg mb-4">
           <h2 className="text-xl font-semibold text-indigo-300 mb-4">Account</h2>
           {user ? <UserProfile /> : <CustomAuthForm />}
+        </div>
+
+        {/* Device Information Section */}
+        <div className="settings-card bg-slate-800 rounded-lg p-6 shadow-lg mb-4">
+          <h2 className="text-xl font-semibold text-indigo-300 mb-4">Device Information</h2>
+          <DeviceIdDisplay deviceId={deviceId} />
         </div>
 
         {/* Sync Section */}
