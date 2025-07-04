@@ -9,6 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+// TypeScript declaration for Tauri global
+declare global {
+  interface Window {
+    __TAURI__?: any;
+  }
+}
+
 interface BlockRulesManagerProps {
   blockRules: BlockRule[];
   deviceId: string;
@@ -90,18 +97,24 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
 
   const testTauriInvoke = async () => {
     try {
-      console.log('Testing Tauri invoke...');
+      console.log('TestInvoke: Testing Tauri invoke...');
+      const { invoke } = await import('@tauri-apps/api/core');
+      console.log('TestInvoke: invoke function available:', typeof invoke);
+      console.log('TestInvoke: window.__TAURI__ available:', !!window.__TAURI__);
+      
       const result = await invoke('test_command');
-      console.log('Test command result:', result);
+      console.log('TestInvoke: Test command result:', result);
       
       // Also test database connection
-      console.log('Testing database connection...');
+      console.log('TestInvoke: Testing database connection...');
       const dbResult = await invoke('test_database_connection_command');
-      console.log('Database test result:', dbResult);
+      console.log('TestInvoke: Database test result:', dbResult);
       
       alert('Tauri invoke and database are working!');
     } catch (error) {
-      console.error('Tauri invoke test failed:', error);
+      console.error('TestInvoke: Tauri invoke test failed:', error);
+      console.error('TestInvoke: Error type:', typeof error);
+      console.error('TestInvoke: Error message:', error instanceof Error ? error.message : String(error));
       alert(`Tauri invoke test failed: ${error}`);
     }
   };
@@ -115,31 +128,25 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
     }
     
     setDeletingRuleId(ruleId);
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        console.log(`Calling delete_block_rule_command with ruleId: ${ruleId} (attempt ${retryCount + 1})`);
-        await invoke('delete_block_rule_command', { ruleId });
-        console.log('Delete command executed successfully');
-        onRefresh();
-        return; // Success, exit the retry loop
-      } catch (error) {
-        retryCount++;
-        console.error(`Failed to delete block rule (attempt ${retryCount}):`, error);
-        
-        if (retryCount >= maxRetries) {
-          // Show user-friendly error message after all retries failed
-          alert(`Failed to delete block rule after ${maxRetries} attempts: ${error}`);
-        } else {
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
+    try {
+      console.log('DeleteRule: Testing delete command directly...');
+      const { invoke } = await import('@tauri-apps/api/core');
+      console.log('DeleteRule: invoke function available:', typeof invoke);
+      console.log('DeleteRule: window.__TAURI__ available:', !!window.__TAURI__);
+      
+      console.log('DeleteRule: Calling invoke...');
+      await invoke('delete_block_rule_command', { ruleId });
+      console.log('DeleteRule: Delete command executed successfully');
+      
+      onRefresh();
+    } catch (error) {
+      console.error('DeleteRule: Delete command failed:', error);
+      console.error('DeleteRule: Error type:', typeof error);
+      console.error('DeleteRule: Error message:', error instanceof Error ? error.message : String(error));
+      alert(`Failed to delete block rule: ${error}`);
+    } finally {
+      setDeletingRuleId(null);
     }
-    
-    setDeletingRuleId(null);
   };
 
   const handleEditRule = (rule: BlockRule) => {
@@ -238,8 +245,10 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
                   style={{ 
                     WebkitUserSelect: 'none',
                     userSelect: 'none',
-                    cursor: deletingRuleId === rule.id ? 'not-allowed' : 'pointer'
+                    cursor: deletingRuleId === rule.id ? 'not-allowed' : 'pointer',
+                    pointerEvents: 'auto'
                   }}
+                  className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   {deletingRuleId === rule.id ? 'Deleting...' : 'Delete'}
                 </Button>
