@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppTracking } from '@/hooks/useAppTracking';
 import { useBlocking } from '@/hooks/useBlocking';
 import { 
@@ -25,6 +25,7 @@ function Dashboard() {
     blockRules,
     fetchBlockRules,
     clearAllData,
+    fetchSessions,
   } = useAppTracking();
 
   const {
@@ -33,39 +34,42 @@ function Dashboard() {
     refreshBlockingRules,
   } = useBlocking(deviceId);
 
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-
-  // Aggregate sessions for the selected date into usage summary
+  // Aggregate today's sessions into usage summary
   const usage = useMemo(() => {
-    if (!selectedDate) return [];
-    // Filter sessions for the selected date
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    // Filter sessions for today
     const filteredSessions = sessions.filter(session => {
       const sessionDate = new Date(session.start_time);
-      return (
-        sessionDate.getFullYear() === selectedDate.getFullYear() &&
-        sessionDate.getMonth() === selectedDate.getMonth() &&
-        sessionDate.getDate() === selectedDate.getDate()
-      );
+      return sessionDate >= todayStart && sessionDate < tomorrowStart;
     });
     // Aggregate by app_name
     const usageMap = new Map<string, { day: string; app_name: string; total_seconds: number }>();
     filteredSessions.forEach(session => {
       if (!session.duration_sec) return;
-      const day = session.start_time.slice(0, 10); // YYYY-MM-DD
-      const key = `${day}-${session.app_name}`;
-      if (!usageMap.has(key)) {
-        usageMap.set(key, { day, app_name: session.app_name, total_seconds: 0 });
+      const appName = session.app_name;
+      if (!usageMap.has(appName)) {
+        usageMap.set(appName, { day: todayStart.toISOString().slice(0, 10), app_name: appName, total_seconds: 0 });
       }
-      usageMap.get(key)!.total_seconds += session.duration_sec;
+      usageMap.get(appName)!.total_seconds += session.duration_sec;
     });
     // Convert to array and sort descending by total_seconds
     return Array.from(usageMap.values()).sort((a, b) => b.total_seconds - a.total_seconds);
-  }, [sessions, selectedDate]);
+  }, [sessions]);
 
-  // Calculate total usage for the selected day
+  // Calculate total usage for today
   const totalUsageSeconds = usage.reduce((sum, u) => sum + u.total_seconds, 0);
   const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
   const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
+
+  // Refresh sessions every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSessions();
+    }, 60000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [fetchSessions]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
@@ -87,10 +91,9 @@ function Dashboard() {
             </div>
           </div>
           
-          {/* Date Selector */}
+          {/* Usage Overview Header (no date selector) */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-white">Usage Overview</h2>
-            <DatePicker date={selectedDate} setDate={setSelectedDate} />
           </div>
           
           {/* Stats Cards Grid */}
@@ -100,18 +103,10 @@ function Dashboard() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse"></div>
                 <h2 className="text-xl font-semibold text-blue-300">
-                  Total Usage
+                  Total Usage Today
                 </h2>
               </div>
               <p className="app-name text-3xl font-mono mb-3">{totalUsageHours}h {totalUsageMinutes}m</p>
-              {selectedDate && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-blue-400/70">Date:</span>
-                  <span className="text-sm text-blue-300 font-mono">
-                    {selectedDate.toLocaleDateString()}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>

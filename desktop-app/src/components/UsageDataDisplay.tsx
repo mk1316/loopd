@@ -20,37 +20,77 @@ const timeRangeOptions: TimeRangeOption[] = [
 
 export function UsageDataDisplay({ usage, sessions }: UsageDataDisplayProps & { sessions?: any[] }) {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('daily');
+  // Add state for selected date/week/month
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return now.toISOString().slice(0, 10); // yyyy-mm-dd
+  });
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const week = getWeekNumber(now);
+    return `${year}-W${week.toString().padStart(2, '0')}`;
+  });
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return now.toISOString().slice(0, 7); // yyyy-mm
+  });
 
-  // Aggregate usage data based on selected time range
+  // Helper to get ISO week number
+  function getWeekNumber(date: Date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d as any) - (yearStart as any)) / 86400000 + 1) / 7);
+  }
+
+  // Aggregate usage data based on selected time range and picker
   const aggregatedUsage = useMemo(() => {
     if (!sessions) return usage; // Fallback to original usage if no sessions provided
 
-    const now = new Date();
     let filteredSessions = sessions;
 
-    // Filter sessions based on time range
     switch (selectedTimeRange) {
-      case 'daily':
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      case 'daily': {
+        const day = new Date(selectedDate);
+        const start = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+        const end = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
         filteredSessions = sessions.filter(session => {
           const sessionDate = new Date(session.start_time);
-          return sessionDate >= today;
+          return sessionDate >= start && sessionDate < end;
         });
         break;
-      case 'weekly':
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+      case 'weekly': {
+        // selectedWeek is in format yyyy-Www
+        const [yearStr, weekStr] = selectedWeek.split('-W');
+        const year = parseInt(yearStr, 10);
+        const week = parseInt(weekStr, 10);
+        // Get first day of week (Monday)
+        const firstDayOfYear = new Date(Date.UTC(year, 0, 1));
+        const daysOffset = ((week - 1) * 7) + (firstDayOfYear.getUTCDay() <= 4 ? 1 : 8 - firstDayOfYear.getUTCDay());
+        const start = new Date(Date.UTC(year, 0, daysOffset));
+        const end = new Date(Date.UTC(year, 0, daysOffset + 7));
         filteredSessions = sessions.filter(session => {
           const sessionDate = new Date(session.start_time);
-          return sessionDate >= weekAgo;
+          return sessionDate >= start && sessionDate < end;
         });
         break;
-      case 'monthly':
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      case 'monthly': {
+        // selectedMonth is in format yyyy-mm
+        const [yearStr, monthStr] = selectedMonth.split('-');
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10) - 1;
+        const start = new Date(year, month, 1);
+        const end = new Date(year, month + 1, 1);
         filteredSessions = sessions.filter(session => {
           const sessionDate = new Date(session.start_time);
-          return sessionDate >= monthAgo;
+          return sessionDate >= start && sessionDate < end;
         });
         break;
+      }
       case 'total':
         // Use all sessions
         break;
@@ -69,7 +109,7 @@ export function UsageDataDisplay({ usage, sessions }: UsageDataDisplayProps & { 
 
     // Convert to array and sort by total_seconds
     return Array.from(usageMap.values()).sort((a, b) => b.total_seconds - a.total_seconds);
-  }, [sessions, selectedTimeRange, usage]);
+  }, [sessions, selectedTimeRange, usage, selectedDate, selectedWeek, selectedMonth]);
 
   // Calculate total usage for the selected range
   const totalUsageSeconds = aggregatedUsage.reduce((sum, u) => sum + u.total_seconds, 0);
@@ -104,6 +144,39 @@ export function UsageDataDisplay({ usage, sessions }: UsageDataDisplayProps & { 
               </button>
             ))}
           </div>
+          {/* Date/Week/Month Picker */}
+          {selectedTimeRange === 'daily' && (
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="ml-2 bg-slate-800 text-slate-200 rounded px-2 py-1 border border-slate-700"
+              max={new Date().toISOString().slice(0, 10)}
+            />
+          )}
+          {selectedTimeRange === 'weekly' && (
+            <input
+              type="week"
+              value={selectedWeek}
+              onChange={e => setSelectedWeek(e.target.value)}
+              className="ml-2 bg-slate-800 text-slate-200 rounded px-2 py-1 border border-slate-700"
+              max={(() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const week = getWeekNumber(now);
+                return `${year}-W${week.toString().padStart(2, '0')}`;
+              })()}
+            />
+          )}
+          {selectedTimeRange === 'monthly' && (
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="ml-2 bg-slate-800 text-slate-200 rounded px-2 py-1 border border-slate-700"
+              max={new Date().toISOString().slice(0, 7)}
+            />
+          )}
         </div>
       </div>
 
