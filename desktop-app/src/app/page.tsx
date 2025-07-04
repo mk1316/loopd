@@ -123,36 +123,32 @@ function Dashboard() {
               <div className="grid gap-4">
                 {todayUsageByApp.map((app, index) => (
                   <Card key={app.appName} className="card-dark border-slate-700">
-                    <CardContent className="p-4">
+                    <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700 text-white font-semibold text-sm">
                             {index + 1}
                           </div>
-                          <div>
-                            <h3 className="text-white font-medium">{app.appName}</h3>
-                            <p className="text-sm text-slate-400">
-                              {app.formattedTime} • {app.percentage.toFixed(1)}% of total usage
-                            </p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-white font-bold text-lg">{app.appName}</h3>
+                            <span className="px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-300 text-xs font-semibold ml-1">
+                              {app.percentage.toFixed(1)}%
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-semibold text-white">
-                            {app.formattedTime}
-                          </div>
-                          <div className="text-sm text-slate-400">
-                            {app.percentage.toFixed(1)}%
-                          </div>
+                        <div className="text-lg font-semibold text-white">
+                          {app.formattedTime}
                         </div>
                       </div>
-                      
                       {/* Progress bar */}
-                      <div className="mt-3">
-                        <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div className="mt-4">
+                        <div className="w-full bg-slate-800/50 rounded-full h-3 overflow-hidden backdrop-blur-sm">
                           <div 
-                            className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                            className="bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500 h-3 rounded-full transition-all duration-700 ease-out shadow-lg relative overflow-hidden"
                             style={{ width: `${Math.min(app.percentage, 100)}%` }}
-                          />
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
