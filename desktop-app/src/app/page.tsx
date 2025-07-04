@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAppTracking, fetchUsageForDays } from '@/hooks/useAppTracking';
 import { useBlocking } from '@/hooks/useBlocking';
 import { 
@@ -21,7 +21,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 
 function Dashboard() {
   const {
-    usage: usageAll,
+    sessions,
     currentApp,
     lastUpdate,
     deviceId,
@@ -38,24 +38,38 @@ function Dashboard() {
   } = useBlocking(deviceId);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [usage, setUsage] = useState(usageAll);
 
-  useEffect(() => {
-    async function fetchUsage() {
-      // Always fetch 1 day (today or selected day)
-      const data = await fetchUsageForDays(1);
-      console.log('Selected date:', selectedDate);
-      if (selectedDate) {
-        const dayStr = selectedDate.toISOString().slice(0, 10);
-        console.log('Filtering for dayStr:', dayStr);
-        console.log('Fetched usage data:', data);
-        setUsage(data.filter(u => u.day === dayStr));
-      } else {
-        setUsage(data);
+  // Aggregate sessions for the selected date into usage summary
+  const usage = useMemo(() => {
+    if (!selectedDate) return [];
+    // Filter sessions for the selected date
+    const filteredSessions = sessions.filter(session => {
+      const sessionDate = new Date(session.start_time);
+      return (
+        sessionDate.getFullYear() === selectedDate.getFullYear() &&
+        sessionDate.getMonth() === selectedDate.getMonth() &&
+        sessionDate.getDate() === selectedDate.getDate()
+      );
+    });
+    // Aggregate by app_name
+    const usageMap = new Map<string, { day: string; app_name: string; total_seconds: number }>();
+    filteredSessions.forEach(session => {
+      if (!session.duration_sec) return;
+      const day = session.start_time.slice(0, 10); // YYYY-MM-DD
+      const key = `${day}-${session.app_name}`;
+      if (!usageMap.has(key)) {
+        usageMap.set(key, { day, app_name: session.app_name, total_seconds: 0 });
       }
-    }
-    fetchUsage();
-  }, [selectedDate, deviceId]);
+      usageMap.get(key)!.total_seconds += session.duration_sec;
+    });
+    // Convert to array and sort descending by total_seconds
+    return Array.from(usageMap.values()).sort((a, b) => b.total_seconds - a.total_seconds);
+  }, [sessions, selectedDate]);
+
+  // Calculate total usage for the selected day
+  const totalUsageSeconds = usage.reduce((sum, u) => sum + u.total_seconds, 0);
+  const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
+  const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
 
   useEffect(() => {
     // Add global click handler to debug
@@ -96,11 +110,6 @@ function Dashboard() {
       document.removeEventListener('click', handleGlobalClick);
     };
   }, []);
-
-  // Calculate total usage for the selected day
-  const totalUsageSeconds = usage.reduce((sum, u) => sum + u.total_seconds, 0);
-  const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
-  const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 md:p-8">
