@@ -7,6 +7,7 @@ import { BlockRulesManager } from "@/components/BlockRulesManager";
 import { BlockScreen } from "@/components/BlockScreen";
 import { BlockingTest } from "@/components/BlockingTest";
 import { ProtectedRoute } from "@/components";
+import React from "react";
 
 export default function BlockingPage() {
   const {
@@ -19,6 +20,16 @@ export default function BlockingPage() {
     handleOverride,
     refreshBlockingRules,
   } = useBlocking(deviceId);
+
+  // Add state to control BlockScreen visibility
+  const [showBlockScreen, setShowBlockScreen] = useState(true);
+
+  // Reset showBlockScreen when block status changes
+  React.useEffect(() => {
+    if (currentBlockStatus?.is_blocked) {
+      setShowBlockScreen(true);
+    }
+  }, [currentBlockStatus]);
 
   return (
     <ProtectedRoute>
@@ -47,11 +58,12 @@ export default function BlockingPage() {
           )}
         </div>
         {/* Block Screen Overlay */}
-        {currentBlockStatus?.is_blocked && (
+        {currentBlockStatus?.is_blocked && showBlockScreen && (
           <BlockScreen
             blockStatus={currentBlockStatus}
             deviceId={deviceId}
             onOverride={handleOverride}
+            onClose={() => setShowBlockScreen(false)}
           />
         )}
       </div>
