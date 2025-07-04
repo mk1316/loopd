@@ -63,17 +63,24 @@ function TimelinePage() {
   }, [sessions, selectedDate]);
 
   // Group sessions by hour, then by app, summing durations
+  // FIXED: Sessions that span multiple hours are now properly distributed across all affected hours
+  // This prevents any hour from showing more than 60 minutes of total usage time
   const timelineData = useMemo(() => {
     if (!filteredSessions.length) return [];
-    // Group by hour
-    const sessionsByHour: Record<string, { hour: number; apps: Record<string, TimelineApp> }> = {};
+    
+    // Initialize timeline data for all 24 hours
+    const timelineSlots: Record<string, { hour: number; apps: Record<string, TimelineApp> }> = {};
+    for (let hour = 0; hour < 24; hour++) {
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      const hourKey = `${displayHour}:00 ${ampm}`;
+      timelineSlots[hourKey] = { hour, apps: {} };
+    }
+
+    // Process each session and distribute its duration across hours
     filteredSessions.forEach(session => {
       const startTime = new Date(session.start_time);
-      const hour = startTime.getHours();
-      const hourKey = `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`;
-      // Calculate duration
       const endTime = session.end_time ? new Date(session.end_time) : new Date();
-      const durationMinutes = Math.max(1, Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60)));
       // Determine category and device (mock for now)
       const category = "Work Tools";
       const device = "Desktop";
@@ -83,29 +90,52 @@ function TimelinePage() {
         "bg-yellow-500", "bg-pink-500", "bg-indigo-500", "bg-orange-500"
       ];
       const colorIndex = session.app_name.charCodeAt(0) % colors.length;
-      if (!sessionsByHour[hourKey]) {
-        sessionsByHour[hourKey] = { hour, apps: {} };
+
+      let current = new Date(startTime);
+      while (current < endTime) {
+        const hour = current.getHours();
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        const ampm = hour < 12 ? 'AM' : 'PM';
+        const hourKey = `${displayHour}:00 ${ampm}`;
+        const nextHour = new Date(current);
+        nextHour.setHours(hour + 1, 0, 0, 0);
+        const segmentEnd = nextHour < endTime ? nextHour : endTime;
+        const minutes = Math.ceil((segmentEnd.getTime() - current.getTime()) / (1000 * 60));
+        if (!timelineSlots[hourKey].apps[session.app_name]) {
+          timelineSlots[hourKey].apps[session.app_name] = {
+            name: session.app_name,
+            duration: 0,
+            category,
+            device,
+            color: colors[colorIndex],
+            windowTitle: session.window_title,
+          };
+        }
+        timelineSlots[hourKey].apps[session.app_name].duration += minutes;
+        current = segmentEnd;
       }
-      // Group by app name
-      if (!sessionsByHour[hourKey].apps[session.app_name]) {
-        sessionsByHour[hourKey].apps[session.app_name] = {
-          name: session.app_name,
-          duration: 0,
-          category,
-          device,
-          color: colors[colorIndex],
-          windowTitle: session.window_title,
-        };
-      }
-      sessionsByHour[hourKey].apps[session.app_name].duration += durationMinutes;
     });
-    // Convert to array and sort by hour
-    return Object.entries(sessionsByHour)
+
+    // Validate and cap durations to ensure no hour exceeds 60 minutes
+    Object.values(timelineSlots).forEach(slot => {
+      const totalMinutes = Object.values(slot.apps).reduce((sum, app) => sum + app.duration, 0);
+      if (totalMinutes > 60) {
+        // Scale down all app durations proportionally to fit within 60 minutes
+        const scaleFactor = 60 / totalMinutes;
+        Object.values(slot.apps).forEach(app => {
+          app.duration = Math.round(app.duration * scaleFactor);
+        });
+      }
+    });
+
+    // Convert to array, filter out empty hours, and sort by hour
+    return Object.entries(timelineSlots)
       .map(([time, { hour, apps }]) => ({
         time,
         hour,
         apps: Object.values(apps),
       }))
+      .filter(slot => slot.apps.length > 0) // Only include hours with activity
       .sort((a, b) => a.hour - b.hour);
   }, [filteredSessions]);
 
@@ -135,8 +165,12 @@ function TimelinePage() {
   };
 
   const getTimeSlotIntensity = (totalMinutes: number) => {
-    if (totalMinutes >= 60) return "high";
-    if (totalMinutes >= 30) return "medium";
+    // With the corrected time distribution, totalMinutes should never exceed 60
+    // High: 45+ minutes (75%+ of the hour)
+    // Medium: 20-44 minutes (33-75% of the hour)  
+    // Low: <20 minutes (<33% of the hour)
+    if (totalMinutes >= 45) return "high";
+    if (totalMinutes >= 20) return "medium";
     return "low";
   };
 

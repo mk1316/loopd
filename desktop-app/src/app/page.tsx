@@ -18,8 +18,8 @@ function Dashboard() {
     fetchSessions,
   } = useAppTracking();
 
-  // Format time with seconds for all durations, omitting zero segments
-  const formatTimeWithSeconds = (seconds: number): string => {
+  // Format time with seconds, omitting zero segments
+  const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const remainingSeconds = seconds % 60;
@@ -30,30 +30,20 @@ function Dashboard() {
     return parts.join(' ');
   };
 
-  // Calculate total usage for today
-  const totalUsageSeconds = sessions
-    .filter(session => {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      const sessionDate = new Date(session.start_time);
-      return sessionDate >= todayStart && sessionDate < tomorrowStart;
-    })
-    .reduce((sum, session) => sum + (session.duration_sec || 0), 0);
-  const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
-  const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
-
-  // Calculate today's usage by app, ordered from most used to least used
-  const todayUsageByApp = useMemo(() => {
+  // Calculate today's usage data
+  const { totalUsageSeconds, todayUsageByApp } = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    
     const todaySessions = sessions.filter(session => {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const sessionDate = new Date(session.start_time);
       return sessionDate >= todayStart && sessionDate < tomorrowStart;
     });
 
-    // Group by app and sum durations
+    const totalUsageSeconds = todaySessions.reduce((sum, session) => sum + (session.duration_sec || 0), 0);
+    
+    // Group by app and calculate usage
     const appUsage: Record<string, number> = {};
     todaySessions.forEach(session => {
       const appName = session.app_name;
@@ -62,21 +52,24 @@ function Dashboard() {
     });
 
     // Convert to array and sort by usage (descending)
-    return Object.entries(appUsage)
+    const todayUsageByApp = Object.entries(appUsage)
       .map(([appName, totalSeconds]) => ({
         appName,
         totalSeconds,
-        formattedTime: formatTimeWithSeconds(totalSeconds),
+        formattedTime: formatTime(totalSeconds),
         percentage: totalUsageSeconds > 0 ? (totalSeconds / totalUsageSeconds) * 100 : 0
       }))
       .sort((a, b) => b.totalSeconds - a.totalSeconds);
-  }, [sessions, totalUsageSeconds]);
+
+    return { totalUsageSeconds, todayUsageByApp };
+  }, [sessions]);
+
+  const totalUsageHours = Math.floor(totalUsageSeconds / 3600);
+  const totalUsageMinutes = Math.floor((totalUsageSeconds % 3600) / 60);
 
   // Refresh sessions every 60 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchSessions();
-    }, 60000); // 60 seconds
+    const interval = setInterval(fetchSessions, 60000);
     return () => clearInterval(interval);
   }, [fetchSessions]);
 
@@ -94,11 +87,9 @@ function Dashboard() {
                 {APP_CONSTANTS.DESCRIPTION}
               </p>
             </div>
-            <div className="flex items-center gap-4">
-            </div>
           </div>
           
-          {/* Usage Overview Header (no date selector) */}
+          {/* Usage Overview Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-white">Usage Overview</h2>
           </div>
