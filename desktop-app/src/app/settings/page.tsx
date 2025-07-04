@@ -5,6 +5,7 @@ import { ClearDataButton } from '@/components/ClearDataButton';
 import { UserProfile } from '@/components/UserProfile';
 import { DeviceIdDisplay } from '@/components/DeviceIdDisplay';
 import CustomAuthForm from '@/components/CustomAuthForm';
+import { Updater } from '@/components/Updater';
 import { useAppTracking } from '@/hooks/useAppTracking';
 import { useUser } from '@/contexts/UserContext';
 
@@ -33,6 +34,12 @@ export default function SettingsPage() {
         <div className="settings-card bg-slate-800 rounded-lg p-6 shadow-lg mb-4">
           <h2 className="text-xl font-semibold text-indigo-300 mb-4">Sync</h2>
           <SyncStatus />
+        </div>
+
+        {/* Updates Section */}
+        <div className="settings-card bg-slate-800 rounded-lg p-6 shadow-lg mb-4">
+          <h2 className="text-xl font-semibold text-indigo-300 mb-4">Updates</h2>
+          <Updater />
         </div>
 
         {/* Danger Zone */}

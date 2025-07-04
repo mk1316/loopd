@@ -3,6 +3,7 @@ pub mod usage;
 pub mod database;
 pub mod supabase;
 pub mod blocking;
+pub mod updater;
 
 use blocking::BLOCKING_SYSTEM;
 

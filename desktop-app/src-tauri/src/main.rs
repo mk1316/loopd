@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 use tauri::WindowEvent;
 use tauri_plugin_store::StoreBuilder;
+use tauri_plugin_updater::UpdaterPlugin;
 use chrono::{DateTime, Utc};
 
 fn main() {
@@ -34,7 +35,8 @@ fn main() {
                 .add_migrations("sqlite:usage.db", migrations)
                 .build(),
         )
-        .plugin(tauri_plugin_store::Builder::default().build());
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(UpdaterPlugin::default());
 
     // ----------------------------------------------------------------------------
     // Setup and manage the database state before registering event handlers
@@ -109,6 +111,9 @@ fn main() {
         // Start background tracking, passing the same Arc
         start_tracking(db.clone(), app.handle().clone());
 
+        // Setup updater events
+        app_lib::updater::setup_updater_events(app.handle().clone());
+
         // Open devtools in debug mode
         #[cfg(debug_assertions)]
         {
@@ -166,6 +171,9 @@ fn main() {
             app_lib::blocking::add_block_override_command,
             app_lib::blocking::remove_block_override_command,
             app_lib::blocking::refresh_blocking_rules_command,
+            app_lib::updater::check_for_updates,
+            app_lib::updater::install_update,
+            app_lib::updater::get_current_version,
             test_command
         ])
         .run(tauri::generate_context!())
