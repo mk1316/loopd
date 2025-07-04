@@ -117,6 +117,46 @@
     border: 1px solid rgba(51, 65, 85, 0.2);
   }
   
+  /* Dark card styling for usage breakdown */
+  .card-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(51, 65, 85, 0.3);
+    transition: all 0.3s ease;
+  }
+  
+  .card-dark:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    border-color: rgba(51, 65, 85, 0.5);
+  }
+  
+  /* Scrollable usage table container */
+  .usage-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(71, 85, 105, 0.5) transparent;
+  }
+  
+  .usage-table-container::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .usage-table-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .usage-table-container::-webkit-scrollbar-thumb {
+    background: rgba(71, 85, 105, 0.5);
+    border-radius: 3px;
+  }
+  
+  .usage-table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 0.7);
+  }
+  
   /* Gradient buttons */
   .gradient-button {
     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
