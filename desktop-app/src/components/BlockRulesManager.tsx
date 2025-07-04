@@ -120,12 +120,7 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
   };
 
   const handleDeleteRule = async (ruleId: string) => {
-    console.log('Delete button clicked for rule:', ruleId);
-    
-    if (!confirm('Are you sure you want to delete this block rule?')) {
-      console.log('Delete cancelled by user');
-      return;
-    }
+    console.log('DeleteRule: Delete button clicked for rule:', ruleId);
     
     setDeletingRuleId(ruleId);
     try {
@@ -232,26 +227,24 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
                 >
                   Edit
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
+                <button
+                  onClick={() => handleDeleteRule(rule.id)}
                   disabled={deletingRuleId === rule.id}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDeleteRule(rule.id);
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  style={{ 
-                    WebkitUserSelect: 'none',
-                    userSelect: 'none',
-                    cursor: deletingRuleId === rule.id ? 'not-allowed' : 'pointer',
-                    pointerEvents: 'auto'
-                  }}
-                  className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className={`
+                    group relative inline-flex items-center justify-center
+                    px-3 py-1.5 rounded-md font-medium text-sm leading-5
+                    transition-all duration-200 ease-out
+                    border border-transparent
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
+                    ${deletingRuleId === rule.id 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed shadow-sm' 
+                      : 'bg-red-500 hover:bg-red-600 active:bg-red-700 text-white cursor-pointer shadow-sm hover:shadow-md'
+                    }
+                  `}
+                  style={{ pointerEvents: 'auto' }}
                 >
                   {deletingRuleId === rule.id ? 'Deleting...' : 'Delete'}
-                </Button>
+                </button>
               </div>
             </CardContent>
           </Card>
