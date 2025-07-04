@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 use tauri::WindowEvent;
 use tauri_plugin_store::StoreBuilder;
-use tauri_plugin_updater::UpdaterExt;
 use chrono::{DateTime, Utc};
+use tauri_plugin_updater;
 
 fn main() {
     // Define SQL migrations for the plugin
@@ -159,6 +159,7 @@ fn main() {
             app_lib::database::sync_data_command,
             app_lib::database::get_unsynced_sessions_command,
             app_lib::database::test_supabase_connection_command,
+            app_lib::database::test_database_connection_command,
             app_lib::database::patch_open_sessions_with_end_time,
             app_lib::blocking::create_block_rule_command,
             app_lib::blocking::get_block_rules_command,

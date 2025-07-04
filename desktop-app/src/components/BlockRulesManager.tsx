@@ -28,6 +28,7 @@ interface BlockRuleForm {
 export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRulesManagerProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<BlockRule | null>(null);
+  const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [form, setForm] = useState<BlockRuleForm>({
     app_name: '',
     block_type: 'time',
@@ -87,15 +88,58 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
     }
   };
 
-  const handleDeleteRule = async (ruleId: string) => {
-    if (!confirm('Are you sure you want to delete this block rule?')) return;
-    
+  const testTauriInvoke = async () => {
     try {
-      await invoke('delete_block_rule_command', { ruleId });
-      onRefresh();
+      console.log('Testing Tauri invoke...');
+      const result = await invoke('test_command');
+      console.log('Test command result:', result);
+      
+      // Also test database connection
+      console.log('Testing database connection...');
+      const dbResult = await invoke('test_database_connection_command');
+      console.log('Database test result:', dbResult);
+      
+      alert('Tauri invoke and database are working!');
     } catch (error) {
-      console.error('Failed to delete block rule:', error);
+      console.error('Tauri invoke test failed:', error);
+      alert(`Tauri invoke test failed: ${error}`);
     }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    console.log('Delete button clicked for rule:', ruleId);
+    
+    if (!confirm('Are you sure you want to delete this block rule?')) {
+      console.log('Delete cancelled by user');
+      return;
+    }
+    
+    setDeletingRuleId(ruleId);
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Calling delete_block_rule_command with ruleId: ${ruleId} (attempt ${retryCount + 1})`);
+        await invoke('delete_block_rule_command', { ruleId });
+        console.log('Delete command executed successfully');
+        onRefresh();
+        return; // Success, exit the retry loop
+      } catch (error) {
+        retryCount++;
+        console.error(`Failed to delete block rule (attempt ${retryCount}):`, error);
+        
+        if (retryCount >= maxRetries) {
+          // Show user-friendly error message after all retries failed
+          alert(`Failed to delete block rule after ${maxRetries} attempts: ${error}`);
+        } else {
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
+    
+    setDeletingRuleId(null);
   };
 
   const handleEditRule = (rule: BlockRule) => {
@@ -138,9 +182,19 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Block Rules</h2>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          Add Block Rule
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={testTauriInvoke}
+            className="text-xs"
+          >
+            Test Invoke
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            Add Block Rule
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -174,9 +228,20 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleDeleteRule(rule.id)}
+                  disabled={deletingRuleId === rule.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDeleteRule(rule.id);
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  style={{ 
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none',
+                    cursor: deletingRuleId === rule.id ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  Delete
+                  {deletingRuleId === rule.id ? 'Deleting...' : 'Delete'}
                 </Button>
               </div>
             </CardContent>

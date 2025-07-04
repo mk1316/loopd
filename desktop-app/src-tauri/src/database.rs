@@ -667,12 +667,23 @@ impl Database {
     }
 
     pub async fn delete_block_rule(&self, rule_id: &str) -> Result<(), sqlx::Error> {
-        sqlx::query("DELETE FROM block_rules WHERE id = ?")
+        println!("[DB] Deleting block rule: {}", rule_id);
+        
+        let result = sqlx::query("DELETE FROM block_rules WHERE id = ?")
             .bind(rule_id)
             .execute(&self.pool)
-            .await?;
-
-        Ok(())
+            .await;
+            
+        match result {
+            Ok(rows) => {
+                println!("[DB] Deleted {} rows for block rule: {}", rows.rows_affected(), rule_id);
+                Ok(())
+            }
+            Err(e) => {
+                println!("[DB] Error deleting block rule {}: {}", rule_id, e);
+                Err(e)
+            }
+        }
     }
 
     // Block rule evaluation
@@ -887,6 +898,27 @@ impl Database {
         let usage_seconds = self.get_daily_usage_for_app(device_id, app_name, today).await?;
         Ok(usage_seconds / 60) // Convert seconds to minutes
     }
+
+    pub async fn test_database_connection(&self) -> Result<String, sqlx::Error> {
+        println!("[DB] Testing database connection...");
+        
+        // Test a simple query
+        let result = sqlx::query("SELECT COUNT(*) as count FROM block_rules")
+            .fetch_one(&self.pool)
+            .await;
+            
+        match result {
+            Ok(row) => {
+                let count: i64 = row.get("count");
+                println!("[DB] Database connection test successful. Found {} block rules", count);
+                Ok(format!("Database connection OK. Found {} block rules", count))
+            }
+            Err(e) => {
+                println!("[DB] Database connection test failed: {}", e);
+                Err(e)
+            }
+        }
+    }
 }
 
 // Tauri commands
@@ -1034,4 +1066,13 @@ pub async fn patch_open_sessions_with_end_time(
     db.patch_open_sessions_with_end_time(&device_id, end_time)
         .await
         .map_err(|e| format!("Failed to patch open sessions: {}", e))
+}
+
+#[tauri::command]
+pub async fn test_database_connection_command(
+    db: State<'_, Db>,
+) -> Result<String, String> {
+    db.test_database_connection()
+        .await
+        .map_err(|e| format!("Database test failed: {}", e))
 } 
