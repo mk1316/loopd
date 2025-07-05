@@ -4,9 +4,11 @@ import { useState } from "react"
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useUser } from '@/contexts/UserContext';
+import { usePostHog } from '@/hooks/usePostHog';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import AnalyticsDashboard from './AnalyticsDashboard'
 import {
   Shield,
   Target,
@@ -26,6 +28,7 @@ import {
 export default function LandingPage() {
   const router = useRouter();
   const { user, loading } = useUser();
+  const posthog = usePostHog();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Redirect authenticated users to dashboard
@@ -53,8 +56,8 @@ export default function LandingPage() {
   }
 
   const handleNavigation = (page: string, source?: string) => {
-    // Simple analytics tracking (you can replace with your analytics service)
-    console.log("navigation_click", {
+    // PostHog analytics tracking
+    posthog.trackButtonClick('navigation', {
       destination: page,
       source: source || "landing_page",
       page_name: "landing",
@@ -66,13 +69,16 @@ export default function LandingPage() {
       router.push('/login?mode=signup');
     } else if (page === "downloads") {
       // Handle downloads navigation
-      console.log("Downloads clicked");
+      posthog.trackButtonClick('downloads', {
+        source: source || "landing_page",
+        page_name: "landing",
+      });
     }
   }
 
   const handleCTAClick = (action: string, location: string) => {
-    // Simple analytics tracking (you can replace with your analytics service)
-    console.log("cta_click", {
+    // PostHog analytics tracking
+    posthog.trackButtonClick('cta', {
       action,
       location,
       page_name: "landing",
@@ -163,9 +169,9 @@ export default function LandingPage() {
             ✨ Transform Your Digital Habits
           </Badge>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1]">
             Take Control of Your
-            <span className="block gradient-text">Digital Life</span>
+            <span className="block gradient-text leading-[1.15] pb-1">Digital Life</span>
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
@@ -512,6 +518,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      
+      {/* Development Analytics Dashboard */}
+      <AnalyticsDashboard />
     </div>
   )
 } 

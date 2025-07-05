@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { usePostHog } from '@/hooks/usePostHog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,7 @@ interface ValidationErrors {
 
 export default function CustomAuthForm() {
   const searchParams = useSearchParams();
+  const posthog = usePostHog();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -94,6 +96,9 @@ export default function CustomAuthForm() {
     
     try {
       if (mode === 'sign-in') {
+        // Track login attempt
+        posthog.trackLogin('email', { email });
+        
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           setError(getErrorMessage(error.message));
@@ -101,6 +106,9 @@ export default function CustomAuthForm() {
           setSuccess('Signed in successfully!');
         }
       } else {
+        // Track signup attempt
+        posthog.trackSignUp('email', { email });
+        
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -127,6 +135,9 @@ export default function CustomAuthForm() {
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
     setLoading(true);
     setError('');
+    
+    // Track social login attempt
+    posthog.trackLogin(provider, { provider });
     
     try {
       const { error } = await supabase.auth.signInWithOAuth({
