@@ -16,7 +16,7 @@
 //
 // For further improvements, consider distinguishing between periodic updates and true user input, or using OS-level idle detection APIs for even more accuracy.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Session, BlockRule, BlockStatus } from '@/types';
@@ -102,7 +102,7 @@ export function useAppTracking() {
 
 
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       const data = await invoke<Session[]>('get_sessions_command', { 
         deviceId, 
@@ -113,7 +113,7 @@ export function useAppTracking() {
       logError(e, 'fetchSessions');
       setSessions([]);
     }
-  };
+  }, [deviceId]);
 
   const fetchCurrentApp = async () => {
     try {
@@ -135,7 +135,7 @@ export function useAppTracking() {
     }
   };
 
-  const fetchBlockRules = async () => {
+  const fetchBlockRules = useCallback(async () => {
     if (!deviceId) return;
     try {
       const rules = await invoke<BlockRule[]>('get_block_rules_command', { deviceId });
@@ -144,9 +144,9 @@ export function useAppTracking() {
       logError(e, 'fetchBlockRules');
       setBlockRules([]);
     }
-  };
+  }, [deviceId]);
 
-  const evaluateBlockStatus = async () => {
+  const evaluateBlockStatus = useCallback(async () => {
     if (!deviceId || !currentApp || !isBlockingEnabled) {
       setCurrentBlockStatus(null);
       return;
@@ -161,7 +161,7 @@ export function useAppTracking() {
       logError(e, 'evaluateBlockStatus');
       setCurrentBlockStatus(null);
     }
-  };
+  }, [deviceId, currentApp, isBlockingEnabled]);
 
   const clearAllData = async () => {
     const confirmed = window.confirm(
@@ -224,12 +224,12 @@ export function useAppTracking() {
       fetchSessions();
       fetchBlockRules();
     }
-  }, [deviceId]);
+  }, [deviceId, fetchSessions, fetchBlockRules]);
 
   // Evaluate block status when currentApp or blockRules change
   useEffect(() => {
     evaluateBlockStatus();
-  }, [currentApp, blockRules, isBlockingEnabled]);
+  }, [currentApp, blockRules, isBlockingEnabled, evaluateBlockStatus]);
 
   return {
     sessions,

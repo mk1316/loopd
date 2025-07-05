@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUser } from '@/contexts/UserContext';
 import { logError } from '@/lib/errorHandling';
@@ -48,7 +48,7 @@ export function useSync() {
   }, []);
 
   // Check for unsynced sessions
-  const checkUnsyncedSessions = async () => {
+  const checkUnsyncedSessions = useCallback(async () => {
     if (!deviceId) return;
 
     try {
@@ -65,10 +65,10 @@ export function useSync() {
         error: 'Failed to check unsynced sessions',
       }));
     }
-  };
+  }, [deviceId]);
 
   // Manual sync function
-  const syncData = async () => {
+  const syncData = useCallback(async () => {
     if (!user || !deviceId || !session) {
       setSyncStatus(prev => ({
         ...prev,
@@ -125,7 +125,7 @@ export function useSync() {
         error: e instanceof Error ? e.message : 'Sync failed',
       }));
     }
-  };
+  }, [user, deviceId, session, checkUnsyncedSessions]);
 
   // Test Supabase connection
   const testConnection = async () => {
@@ -165,7 +165,7 @@ export function useSync() {
     if (user && deviceId) {
       checkUnsyncedSessions();
     }
-  }, [user, deviceId]);
+  }, [user, deviceId, checkUnsyncedSessions]);
 
   // Periodic batch sync (every 30 seconds)
   useEffect(() => {
@@ -176,7 +176,7 @@ export function useSync() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [user, deviceId]);
+  }, [user, deviceId, syncData]);
 
   return {
     syncStatus,
