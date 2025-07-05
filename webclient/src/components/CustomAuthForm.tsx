@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ interface ValidationErrors {
 }
 
 export default function CustomAuthForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,6 +29,14 @@ export default function CustomAuthForm() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Check URL parameters for mode
+  useEffect(() => {
+    const urlMode = searchParams.get('mode');
+    if (urlMode === 'signup') {
+      setMode('sign-up');
+    }
+  }, [searchParams]);
 
   // Real-time validation
   useEffect(() => {
