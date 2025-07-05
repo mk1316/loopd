@@ -3,8 +3,7 @@
 import { useMemo, useEffect } from 'react';
 import { useAppTracking } from '@/hooks/useAppTracking';
 import { 
-  CurrentAppDisplay, 
-  ProtectedRoute
+  CurrentAppDisplay
 } from '@/components';
 import { APP_CONSTANTS } from '@/lib/constants';
 import { Card, CardContent } from '@/components/ui/card';
@@ -185,9 +184,5 @@ function Dashboard() {
 }
 
 export default function Home() {
-  return (
-    <ProtectedRoute>
-      <Dashboard />
-    </ProtectedRoute>
-  );
+  return <Dashboard />;
 }

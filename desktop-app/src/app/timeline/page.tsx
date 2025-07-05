@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { Clock, Smartphone, Monitor, Filter, Search } from 'lucide-react';
 import { useAppTracking } from '@/hooks/useAppTracking';
-import { ProtectedRoute } from '@/components';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -435,9 +434,5 @@ function TimelinePage() {
 }
 
 export default function Timeline() {
-  return (
-    <ProtectedRoute>
-      <TimelinePage />
-    </ProtectedRoute>
-  );
+  return <TimelinePage />;
 } 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/contexts/UserContext";
-import { Sidebar } from "@/components/Sidebar";
+import { AuthLayout } from "@/components/AuthLayout";
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -23,10 +23,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         <UserProvider>
-          <div className="flex min-h-screen h-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 h-screen overflow-y-auto">{children}</main>
-          </div>
+          <AuthLayout>
+            {children}
+          </AuthLayout>
         </UserProvider>
       </body>
     </html>
