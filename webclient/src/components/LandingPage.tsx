@@ -8,7 +8,6 @@ import { usePostHog } from '@/hooks/usePostHog';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import AnalyticsDashboard from './AnalyticsDashboard'
 import {
   Shield,
   Target,
@@ -73,6 +72,7 @@ export default function LandingPage() {
         source: source || "landing_page",
         page_name: "landing",
       });
+      router.push('/downloads');
     }
   }
 
@@ -518,9 +518,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-      
-      {/* Development Analytics Dashboard */}
-      <AnalyticsDashboard />
     </div>
   )
 } 
