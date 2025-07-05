@@ -1,9 +1,4 @@
-// Usage data types
-export interface UsageSummary {
-  day: string;
-  app_name: string;
-  total_seconds: number;
-}
+
 
 // Session data types
 export interface Session {
@@ -55,7 +50,6 @@ export interface BlockStatus {
 
 // App state types
 export interface AppState {
-  usage: UsageSummary[];
   sessions: Session[];
   currentApp: string;
   lastUpdate: string;
@@ -85,9 +79,7 @@ export interface DeviceIdDisplayProps {
   deviceId: string;
 }
 
-export interface UsageDataDisplayProps {
-  usage: UsageSummary[];
-}
+
 
 export interface TimelineViewProps {
   sessions: Session[];

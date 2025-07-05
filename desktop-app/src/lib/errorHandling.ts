@@ -61,7 +61,7 @@ export interface SyncError {
 export class SupabaseErrorHandler {
   private static errors: SyncError[] = [];
 
-  static logError(error: any, operation: SyncError['operation'], context?: string): SyncError {
+  static logError(error: unknown, operation: SyncError['operation'], context?: string): SyncError {
     const syncError: SyncError = {
       code: this.getErrorCode(error),
       message: this.getErrorMessage(error),
@@ -76,30 +76,28 @@ export class SupabaseErrorHandler {
     return syncError;
   }
 
-  static getErrorCode(error: any): string {
-    if (error?.code) return error.code;
-    if (error?.status) return error.status.toString();
+  static getErrorCode(error: unknown): string {
+    if (typeof error === 'object' && error && 'code' in error) return (error as { code: string }).code;
+    if (typeof error === 'object' && error && 'status' in error) return String((error as { status: string | number }).status);
     return 'UNKNOWN';
   }
 
-  static getErrorMessage(error: any): string {
-    // Supabase specific error messages
-    if (error?.message) {
-      if (error.message.includes('permission denied')) {
+  static getErrorMessage(error: unknown): string {
+    if (typeof error === 'object' && error && 'message' in error && typeof (error as { message: string }).message === 'string') {
+      const message = (error as { message: string }).message;
+      if (message.includes('permission denied')) {
         return 'Access denied. Please check your authentication.';
       }
-      if (error.message.includes('duplicate key')) {
+      if (message.includes('duplicate key')) {
         return 'Data already exists. Sync will continue normally.';
       }
-      if (error.message.includes('network')) {
+      if (message.includes('network')) {
         return 'Network error. Please check your internet connection.';
       }
-      return error.message;
+      return message;
     }
-
-    // Generic error messages
     if (typeof error === 'string') return error;
-    if (error?.toString) return error.toString();
+    if (typeof error === 'object' && error && 'toString' in error && typeof (error as { toString: () => string }).toString === 'function') return (error as { toString: () => string }).toString();
     return 'An unexpected error occurred';
   }
 
@@ -135,15 +133,15 @@ export class SupabaseErrorHandler {
 }
 
 // Utility functions for common error scenarios
-export const handleSyncError = (error: any, context?: string) => {
+export const handleSyncError = (error: unknown, context?: string) => {
   return SupabaseErrorHandler.logError(error, 'sync', context);
 };
 
-export const handleAuthError = (error: any, context?: string) => {
+export const handleAuthError = (error: unknown, context?: string) => {
   return SupabaseErrorHandler.logError(error, 'auth', context);
 };
 
-export const handleConnectionError = (error: any, context?: string) => {
+export const handleConnectionError = (error: unknown, context?: string) => {
   return SupabaseErrorHandler.logError(error, 'connection', context);
 };
 
@@ -153,7 +151,7 @@ export const retryOperation = async <T>(
   maxRetries: number = 3,
   delay: number = 1000
 ): Promise<T> => {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

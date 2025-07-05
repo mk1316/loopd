@@ -38,6 +38,7 @@ jobs:
         with:
           node-version: lts/*
           cache: 'npm'
+          cache-dependency-path: './desktop-app/package-lock.json'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,17 +48,23 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: './desktop-app/src-tauri -> target'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          cd desktop-app
+          npm ci
 
       - name: Security audit
-        run: npm audit --audit-level moderate
+        run: |
+          cd desktop-app
+          npm audit --audit-level moderate
         continue-on-error: true
 
       - name: Build verification
-        run: npm run tauri build -- ${{ matrix.args }}
+        run: |
+          cd desktop-app
+          npm run tauri build -- ${{ matrix.args }}
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -65,6 +72,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         with:
+          projectPath: desktop-app
           tagName: loopd-v__VERSION__
           releaseName: 'Loopd v__VERSION__'
           releaseBody: |
@@ -74,6 +82,7 @@ jobs:
             - Cross-platform app usage tracking
             - Real-time dashboard updates
             - Local SQLite storage
+            - Automatic app updates
             
             ### 🔧 Improvements
             - Performance optimizations

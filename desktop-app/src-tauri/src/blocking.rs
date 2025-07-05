@@ -6,7 +6,7 @@ use crate::Db;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use log::info;
+use log::{info, error};
 use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,8 +104,8 @@ pub struct BlockStatus {
 pub struct BlockingSystem {
     pub rules: Vec<BlockRule>,
     pub active_overrides: HashMap<String, DateTime<Utc>>,
-    last_evaluation: Instant,
-    evaluation_interval: Duration,
+    _last_evaluation: Instant,
+    _evaluation_interval: Duration,
     pub device_id: String,
 }
 
@@ -114,8 +114,8 @@ impl BlockingSystem {
         Self {
             rules: Vec::new(),
             active_overrides: HashMap::new(),
-            last_evaluation: Instant::now(),
-            evaluation_interval: Duration::from_millis(500), // High-speed evaluation
+            _last_evaluation: Instant::now(),
+            _evaluation_interval: Duration::from_millis(500), // High-speed evaluation
             device_id,
         }
     }
@@ -437,9 +437,18 @@ pub async fn delete_block_rule_command(
     db: State<'_, Db>,
     rule_id: String,
 ) -> Result<(), String> {
-    db.delete_block_rule(&rule_id)
-        .await
-        .map_err(|e| format!("Failed to delete block rule: {}", e))
+    info!("[BLOCKING] Deleting block rule with ID: {}", rule_id);
+    
+    match db.delete_block_rule(&rule_id).await {
+        Ok(_) => {
+            info!("[BLOCKING] Successfully deleted block rule: {}", rule_id);
+            Ok(())
+        }
+        Err(e) => {
+            error!("[BLOCKING] Failed to delete block rule {}: {}", rule_id, e);
+            Err(format!("Failed to delete block rule: {}", e))
+        }
+    }
 }
 
 #[tauri::command]

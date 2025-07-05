@@ -1,5 +1,5 @@
 // Explicitly define window.__TAURI_INTERNALS__ with a plain function for invoke
-// @ts-ignore
+// @ts-expect-error - Mocking Tauri internals
 window.__TAURI_INTERNALS__ = { invoke: function() { return undefined } }
 
 import '@testing-library/jest-dom'
@@ -10,15 +10,15 @@ import { randomFillSync } from 'crypto'
 // jsdom doesn't come with a WebCrypto implementation
 Object.defineProperty(window, 'crypto', {
   value: {
-    getRandomValues: (buffer: any) => {
+    getRandomValues: (buffer: Uint8Array) => {
       return randomFillSync(buffer)
     },
   },
 })
 
 // Mock Tauri IPC (must be first)
-mockIPC((cmd, args) => {
-  const commandMap: Record<string, any> = {
+mockIPC((cmd) => {
+  const commandMap: Record<string, unknown> = {
     // App-specific commands
     'get_active_app': 'Discord',
     'get_block_rules': [
@@ -143,9 +143,9 @@ mockIPC((cmd, args) => {
 })
 
 // Fallback: If window.__TAURI_INTERNALS__.invoke is still undefined, mock it as a function
-// @ts-ignore
+// @ts-expect-error - Mocking Tauri internals
 if (typeof window.__TAURI_INTERNALS__ !== 'undefined' && typeof window.__TAURI_INTERNALS__.invoke !== 'function') {
-  // @ts-ignore
+  // @ts-expect-error - Mocking Tauri internals
   window.__TAURI_INTERNALS__.invoke = () => undefined
 }
 
@@ -174,20 +174,20 @@ vi.mock('@supabase/supabase-js', () => ({
 }))
 
 // Mock Tauri internals for event plugin
-// @ts-ignore
+// @ts-expect-error - Mocking Tauri internals
 if (!window.__TAURI_INTERNALS__) {
-  // @ts-ignore
+  // @ts-expect-error - Mocking Tauri internals
   window.__TAURI_INTERNALS__ = {};
 }
-// @ts-ignore
+// @ts-expect-error - Mocking Tauri internals
 window.__TAURI_INTERNALS__.invoke = window.__TAURI_INTERNALS__.invoke || (async () => undefined);
 
-// @ts-ignore
+// Mock Tauri event plugin internals
 if (!window.__TAURI_EVENT_PLUGIN_INTERNALS__) {
-  // @ts-ignore
-  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {};
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+    unregisterListener: () => undefined
+  };
 }
-// @ts-ignore
 window.__TAURI_EVENT_PLUGIN_INTERNALS__.unregisterListener = window.__TAURI_EVENT_PLUGIN_INTERNALS__.unregisterListener || (() => undefined);
 
 // Clear mocks after each test

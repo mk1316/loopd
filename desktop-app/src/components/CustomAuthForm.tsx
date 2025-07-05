@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabaseClient';
+import { getClient } from '@/lib/supabaseClient';
 
-const supabase = createClient();
+const supabase = getClient();
 
 interface ValidationErrors {
   email?: string;
@@ -92,7 +92,7 @@ export default function CustomAuthForm() {
           setSuccess('Check your email to verify your account!');
         }
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -114,7 +114,7 @@ export default function CustomAuthForm() {
       if (error) {
         setError(getErrorMessage(error.message));
       }
-    } catch (err) {
+    } catch {
       setError('Social login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -258,7 +258,7 @@ export default function CustomAuthForm() {
           <p className="text-slate-400 text-sm">
             {mode === 'sign-in' ? (
               <>
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <button
                   type="button"
                   onClick={handleModeToggle}

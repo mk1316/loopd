@@ -7,9 +7,14 @@ use sqlx::SqlitePool;
 use app_lib::{database::Database, start_tracking};
 use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
-use tauri::WindowEvent;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{TrayIconBuilder, TrayIconEvent},
+    WindowEvent,
+};
 use tauri_plugin_store::StoreBuilder;
 use chrono::{DateTime, Utc};
+use tauri_plugin_updater;
 
 fn main() {
     // Define SQL migrations for the plugin
@@ -34,109 +39,142 @@ fn main() {
                 .add_migrations("sqlite:usage.db", migrations)
                 .build(),
         )
-        .plugin(tauri_plugin_store::Builder::default().build());
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            // --- System tray setup for Tauri v2 ---
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
 
-    // ----------------------------------------------------------------------------
-    // Setup and manage the database state before registering event handlers
-    // ----------------------------------------------------------------------------
-    let tauri_builder = tauri_builder.setup(|app| {
-        let app_handle = app.handle();
-        // Do not use app.state::<Arc<Database>>() here!
-        // Instead, use a local db variable before calling app.manage
-
-        // ----------------------------------------------------------------------------
-        // Resolve an **absolute** path for the SQLite database in the user's data dir
-        // ----------------------------------------------------------------------------
-        let mut db_dir: PathBuf = app
-            .path()
-            .app_data_dir()
-            .expect("failed to resolve app data directory");
-
-        // Ensure the directory exists
-        if let Err(e) = std::fs::create_dir_all(&db_dir) {
-            eprintln!("Failed to create data directory: {e}");
-        }
-
-        db_dir.push("usage.db");
-
-        let db_path = db_dir;
-
-        // Build a sqlx connection string that matches the plugin connection string
-        // The plugin will resolve "sqlite:usage.db" relative to AppConfig, so we do the same.
-        let db_url = format!("sqlite://{}", db_path.to_string_lossy());
-
-        // Connect the pool (will create the file if missing)
-        let pool = tauri::async_runtime::block_on(async {
-            SqlitePool::connect(&db_url)
-                .await
-                .expect("Failed to connect to SQLite database")
-        });
-
-        // Note: tauri_plugin_sql handles migrations automatically
-        // No need for additional sqlx::migrate! call
-
-        // Wrap the Database in an Arc so it can be shared safely
-        let db = Arc::new(Database::new(pool));
-
-        // --- Use the local db variable for any setup work before manage ---
-        tauri::async_runtime::block_on(async {
-            // Load lastActiveTime from store
-            let store = StoreBuilder::new(app_handle, "loopd-store.json")
-                .build()
-                .expect("Failed to build store");
-            let last_active_time: Option<String> = store
-                .get("lastActiveTime")
-                .and_then(|v| v.as_str().map(|s| s.to_string()));
-            if let Some(ref ts) = last_active_time {
-                println!("[lastActiveTime] Backend read value: {}", ts);
-            }
-            if let Some(ts) = last_active_time {
-                if let Ok(end_time) = ts.parse::<DateTime<Utc>>() {
-                    // Use get_first_device() to get device_id
-                    if let Ok(Some(device)) = db.get_first_device().await {
-                        let device_id = &device.id;
-                        println!("[DEBUG] patch_open_sessions_with_end_time called from SETUP");
-                        println!("[patch_open_sessions_with_end_time] Called for device_id: {}, end_time: {}", device_id, end_time);
-                        let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
+            TrayIconBuilder::new()
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
                     }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            // ----------------------------------------------------------------------------
+            // Setup and manage the database state before registering event handlers
+            // ----------------------------------------------------------------------------
+            let app_handle = app.handle();
+            // Do not use app.state::<Arc<Database>>() here!
+            // Instead, use a local db variable before calling app.manage
+
+            // ----------------------------------------------------------------------------
+            // Resolve an **absolute** path for the SQLite database in the user's data dir
+            // ----------------------------------------------------------------------------
+            let mut db_dir: PathBuf = app
+                .path()
+                .app_data_dir()
+                .expect("failed to resolve app data directory");
+
+            // Ensure the directory exists
+            if let Err(e) = std::fs::create_dir_all(&db_dir) {
+                eprintln!("Failed to create data directory: {e}");
+            }
+
+            db_dir.push("usage.db");
+
+            let db_path = db_dir;
+
+            // Build a sqlx connection string that matches the plugin connection string
+            // The plugin will resolve "sqlite:usage.db" relative to AppConfig, so we do the same.
+            let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+            // Connect the pool (will create the file if missing)
+            let pool = tauri::async_runtime::block_on(async {
+                SqlitePool::connect(&db_url)
+                    .await
+                    .expect("Failed to connect to SQLite database")
+            });
+
+            // Note: tauri_plugin_sql handles migrations automatically
+            // No need for additional sqlx::migrate! call
+
+            // Wrap the Database in an Arc so it can be shared safely
+            let db = Arc::new(Database::new(pool));
+
+            // --- Use the local db variable for any setup work before manage ---
+            tauri::async_runtime::block_on(async {
+                // Load lastActiveTime from store
+                let store = StoreBuilder::new(app_handle, "loopd-store.json")
+                    .build()
+                    .expect("Failed to build store");
+                let last_active_time: Option<String> = store
+                    .get("lastActiveTime")
+                    .and_then(|v| v.as_str().map(|s| s.to_string()));
+                if let Some(ref ts) = last_active_time {
+                    println!("[lastActiveTime] Backend read value: {}", ts);
+                }
+                if let Some(ts) = last_active_time {
+                    if let Ok(end_time) = ts.parse::<DateTime<Utc>>() {
+                        // Use get_first_device() to get device_id
+                        if let Ok(Some(device)) = db.get_first_device().await {
+                            let device_id = &device.id;
+                            println!("[DEBUG] patch_open_sessions_with_end_time called from SETUP");
+                            println!("[patch_open_sessions_with_end_time] Called for device_id: {}, end_time: {}", device_id, end_time);
+                            let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
+                        }
+                    }
+                }
+            });
+
+            // Make the Database available as managed state for commands
+            app.manage(db.clone());
+
+            // Start background tracking, passing the same Arc
+            start_tracking(db.clone(), app.handle().clone());
+
+            // Setup updater events
+            app_lib::updater::setup_updater_events(app.handle().clone());
+
+            // Open devtools in debug mode
+            #[cfg(debug_assertions)]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                window.open_devtools();
+            }
+
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                window.hide().unwrap();
+                
+                let app_handle = window.app_handle().clone();
+                // Only try to access the state if it is available
+                if let Some(db) = app_handle.try_state::<Arc<Database>>() {
+                    let db = db.inner().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Ok(Some(device)) = db.get_first_device().await {
+                            let device_id = &device.id;
+                            let end_time = chrono::Utc::now();
+                            println!("[DEBUG] patch_open_sessions_with_end_time called from WINDOW CLOSE (using current time)");
+                            let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
+                        }
+                    });
                 }
             }
         });
-
-        // Make the Database available as managed state for commands
-        app.manage(db.clone());
-
-        // Start background tracking, passing the same Arc
-        start_tracking(db.clone(), app.handle().clone());
-
-        // Open devtools in debug mode
-        #[cfg(debug_assertions)]
-        {
-            let window = app.get_webview_window("main").unwrap();
-            window.open_devtools();
-        }
-
-        Ok(())
-    });
-
-    // Register the window event handler after setup
-    let tauri_builder = tauri_builder.on_window_event(|window, event| {
-        if let WindowEvent::CloseRequested { .. } = event {
-            let app_handle = window.app_handle().clone();
-            // Only try to access the state if it is available
-            if let Some(db) = app_handle.try_state::<Arc<Database>>() {
-                let db = db.inner().clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Ok(Some(device)) = db.get_first_device().await {
-                        let device_id = &device.id;
-                        let end_time = chrono::Utc::now();
-                        println!("[DEBUG] patch_open_sessions_with_end_time called from WINDOW CLOSE (using current time)");
-                        let _ = db.patch_open_sessions_with_end_time(device_id, end_time).await;
-                    }
-                });
-            }
-        }
-    });
 
     tauri_builder
         .invoke_handler(tauri::generate_handler![
@@ -154,6 +192,7 @@ fn main() {
             app_lib::database::sync_data_command,
             app_lib::database::get_unsynced_sessions_command,
             app_lib::database::test_supabase_connection_command,
+            app_lib::database::test_database_connection_command,
             app_lib::database::patch_open_sessions_with_end_time,
             app_lib::blocking::create_block_rule_command,
             app_lib::blocking::get_block_rules_command,
@@ -166,10 +205,38 @@ fn main() {
             app_lib::blocking::add_block_override_command,
             app_lib::blocking::remove_block_override_command,
             app_lib::blocking::refresh_blocking_rules_command,
+            app_lib::updater::check_for_updates,
+            app_lib::updater::install_update,
+            app_lib::updater::get_current_version,
+            minimize_to_tray,
             test_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+async fn minimize_to_tray(app: tauri::AppHandle) -> Result<(), String> {
+    println!("[CMD] minimize_to_tray called");
+    
+    if let Some(window) = app.get_webview_window("main") {
+        println!("[CMD] Found main window");
+        println!("[CMD] Window visible: {:?}", window.is_visible());
+        
+        match window.hide() {
+            Ok(_) => {
+                println!("[CMD] Window hidden successfully");
+                Ok(())
+            }
+            Err(e) => {
+                println!("[CMD] Failed to hide window: {:?}", e);
+                Err(e.to_string())
+            }
+        }
+    } else {
+        println!("[CMD] Main window not found");
+        Err("Main window not found".to_string())
+    }
 }
 
 #[tauri::command]

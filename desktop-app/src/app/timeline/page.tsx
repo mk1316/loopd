@@ -3,12 +3,10 @@
 import { useState, useMemo } from 'react';
 import { Clock, Smartphone, Monitor, Filter, Search } from 'lucide-react';
 import { useAppTracking } from '@/hooks/useAppTracking';
-import { ProtectedRoute, UserProfile, ClearDataButton, Navigation, SyncStatus } from '@/components';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
-import { format } from 'date-fns';
 
 interface TimelineApp {
   name: string;
@@ -19,17 +17,9 @@ interface TimelineApp {
   windowTitle?: string;
 }
 
-interface TimelineSlot {
-  time: string;
-  hour: number;
-  apps: TimelineApp[];
-}
-
 function TimelinePage() {
   const {
     sessions,
-    isClearing,
-    clearAllData,
   } = useAppTracking();
 
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -63,17 +53,24 @@ function TimelinePage() {
   }, [sessions, selectedDate]);
 
   // Group sessions by hour, then by app, summing durations
+  // FIXED: Sessions that span multiple hours are now properly distributed across all affected hours
+  // This prevents any hour from showing more than 60 minutes of total usage time
   const timelineData = useMemo(() => {
     if (!filteredSessions.length) return [];
-    // Group by hour
-    const sessionsByHour: Record<string, { hour: number; apps: Record<string, TimelineApp> }> = {};
+    
+    // Initialize timeline data for all 24 hours
+    const timelineSlots: Record<string, { hour: number; apps: Record<string, TimelineApp> }> = {};
+    for (let hour = 0; hour < 24; hour++) {
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      const hourKey = `${displayHour}:00 ${ampm}`;
+      timelineSlots[hourKey] = { hour, apps: {} };
+    }
+
+    // Process each session and distribute its duration across hours
     filteredSessions.forEach(session => {
       const startTime = new Date(session.start_time);
-      const hour = startTime.getHours();
-      const hourKey = `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`;
-      // Calculate duration
       const endTime = session.end_time ? new Date(session.end_time) : new Date();
-      const durationMinutes = Math.max(1, Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60)));
       // Determine category and device (mock for now)
       const category = "Work Tools";
       const device = "Desktop";
@@ -83,29 +80,52 @@ function TimelinePage() {
         "bg-yellow-500", "bg-pink-500", "bg-indigo-500", "bg-orange-500"
       ];
       const colorIndex = session.app_name.charCodeAt(0) % colors.length;
-      if (!sessionsByHour[hourKey]) {
-        sessionsByHour[hourKey] = { hour, apps: {} };
+
+      let current = new Date(startTime);
+      while (current < endTime) {
+        const hour = current.getHours();
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        const ampm = hour < 12 ? 'AM' : 'PM';
+        const hourKey = `${displayHour}:00 ${ampm}`;
+        const nextHour = new Date(current);
+        nextHour.setHours(hour + 1, 0, 0, 0);
+        const segmentEnd = nextHour < endTime ? nextHour : endTime;
+        const minutes = Math.ceil((segmentEnd.getTime() - current.getTime()) / (1000 * 60));
+        if (!timelineSlots[hourKey].apps[session.app_name]) {
+          timelineSlots[hourKey].apps[session.app_name] = {
+            name: session.app_name,
+            duration: 0,
+            category,
+            device,
+            color: colors[colorIndex],
+            windowTitle: session.window_title,
+          };
+        }
+        timelineSlots[hourKey].apps[session.app_name].duration += minutes;
+        current = segmentEnd;
       }
-      // Group by app name
-      if (!sessionsByHour[hourKey].apps[session.app_name]) {
-        sessionsByHour[hourKey].apps[session.app_name] = {
-          name: session.app_name,
-          duration: 0,
-          category,
-          device,
-          color: colors[colorIndex],
-          windowTitle: session.window_title,
-        };
-      }
-      sessionsByHour[hourKey].apps[session.app_name].duration += durationMinutes;
     });
-    // Convert to array and sort by hour
-    return Object.entries(sessionsByHour)
+
+    // Validate and cap durations to ensure no hour exceeds 60 minutes
+    Object.values(timelineSlots).forEach(slot => {
+      const total = Object.values(slot.apps).reduce((sum, app) => sum + app.duration, 0);
+      if (total > 60) {
+        // Scale down all app durations proportionally to fit within 60 minutes
+        const scaleFactor = 60 / total;
+        Object.values(slot.apps).forEach(app => {
+          app.duration = Math.round(app.duration * scaleFactor);
+        });
+      }
+    });
+
+    // Convert to array, filter out empty hours, and sort by hour
+    return Object.entries(timelineSlots)
       .map(([time, { hour, apps }]) => ({
         time,
         hour,
         apps: Object.values(apps),
       }))
+      .filter(slot => slot.apps.length > 0) // Only include hours with activity
       .sort((a, b) => a.hour - b.hour);
   }, [filteredSessions]);
 
@@ -135,8 +155,12 @@ function TimelinePage() {
   };
 
   const getTimeSlotIntensity = (totalMinutes: number) => {
-    if (totalMinutes >= 60) return "high";
-    if (totalMinutes >= 30) return "medium";
+    // With the corrected time distribution, totalMinutes should never exceed 60
+    // High: 45+ minutes (75%+ of the hour)
+    // Medium: 20-44 minutes (33-75% of the hour)  
+    // Low: <20 minutes (<33% of the hour)
+    if (totalMinutes >= 45) return "high";
+    if (totalMinutes >= 20) return "medium";
     return "low";
   };
 
@@ -144,7 +168,6 @@ function TimelinePage() {
   const summaryStats = useMemo(() => {
     if (!filteredTimelineData.length) return null;
     const allApps = filteredTimelineData.flatMap(slot => slot.apps);
-    const totalMinutes = allApps.reduce((total, app) => total + app.duration, 0);
     // Most active hour
     const mostActiveHour = filteredTimelineData.reduce((max, slot) => {
       const totalMinutes = getTotalTimeForHour(slot.apps);
@@ -191,13 +214,7 @@ function TimelinePage() {
                 View your app usage history chronologically
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <SyncStatus />
-              <UserProfile />
-              <ClearDataButton onClear={clearAllData} isClearing={isClearing} />
-            </div>
           </div>
-          <Navigation />
         </div>
         <div className="space-y-6">
           {/* Header */}
@@ -327,38 +344,41 @@ function TimelinePage() {
                               </Badge>
                             </div>
                             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                              {timeSlot.apps.map((app: TimelineApp, appIndex: number) => (
-                                <div
-                                  key={`${app.name}-${appIndex}`}
-                                  className="flex items-center gap-3 p-3 rounded-lg glass-effect hover:bg-white/10 transition-all duration-200 cursor-pointer group"
-                                >
+                              {[...timeSlot.apps]
+                                .sort((a, b) => b.duration - a.duration)
+                                .slice(0, 3)
+                                .map((app: TimelineApp, appIndex: number) => (
                                   <div
-                                    className={`w-8 h-8 rounded-lg ${app.color} flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}
+                                    key={`${app.name}-${appIndex}`}
+                                    className="flex items-center gap-3 p-3 rounded-lg glass-effect hover:bg-white/10 transition-all duration-200 cursor-pointer group"
                                   >
-                                    {app.name.charAt(0)}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-white text-sm truncate group-hover:text-gray-200 transition-colors">
-                                      {app.name}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-xs text-gray-400">{formatDuration(app.duration)}</span>
-                                      <span className="text-xs text-gray-500">•</span>
-                                      <div className="flex items-center gap-1">
-                                        {app.device === "Mobile" ? (
-                                          <Smartphone className="h-3 w-3 text-gray-500" />
-                                        ) : (
-                                          <Monitor className="h-3 w-3 text-gray-500" />
-                                        )}
-                                        <span className="text-xs text-gray-500">{app.device}</span>
+                                    <div
+                                      className={`w-8 h-8 rounded-lg ${app.color} flex items-center justify-center text-white text-xs font-bold group-hover:scale-110 transition-transform`}
+                                    >
+                                      {app.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-white text-sm truncate group-hover:text-gray-200 transition-colors">
+                                        {app.name}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs text-gray-400">{formatDuration(app.duration)}</span>
+                                        <span className="text-xs text-gray-500">•</span>
+                                        <div className="flex items-center gap-1">
+                                          {app.device === "Mobile" ? (
+                                            <Smartphone className="h-3 w-3 text-gray-500" />
+                                          ) : (
+                                            <Monitor className="h-3 w-3 text-gray-500" />
+                                          )}
+                                          <span className="text-xs text-gray-500">{app.device}</span>
+                                        </div>
                                       </div>
                                     </div>
+                                    <Badge variant="outline" className="text-xs border-white/20 bg-white/5 text-gray-400">
+                                      {app.category}
+                                    </Badge>
                                   </div>
-                                  <Badge variant="outline" className="text-xs border-white/20 bg-white/5 text-gray-400">
-                                    {app.category}
-                                  </Badge>
-                                </div>
-                              ))}
+                                ))}
                             </div>
                           </div>
                         </div>
@@ -414,9 +434,5 @@ function TimelinePage() {
 }
 
 export default function Timeline() {
-  return (
-    <ProtectedRoute>
-      <TimelinePage />
-    </ProtectedRoute>
-  );
+  return <TimelinePage />;
 } 

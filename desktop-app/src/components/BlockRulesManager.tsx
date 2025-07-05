@@ -9,6 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+// TypeScript declaration for Tauri global
+declare global {
+  interface Window {
+    __TAURI__?: unknown;
+  }
+}
+
 interface BlockRulesManagerProps {
   blockRules: BlockRule[];
   deviceId: string;
@@ -28,6 +35,7 @@ interface BlockRuleForm {
 export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRulesManagerProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<BlockRule | null>(null);
+  const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [form, setForm] = useState<BlockRuleForm>({
     app_name: '',
     block_type: 'time',
@@ -88,13 +96,27 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
   };
 
   const handleDeleteRule = async (ruleId: string) => {
-    if (!confirm('Are you sure you want to delete this block rule?')) return;
+    console.log('DeleteRule: Delete button clicked for rule:', ruleId);
     
+    setDeletingRuleId(ruleId);
     try {
+      console.log('DeleteRule: Testing delete command directly...');
+      const { invoke } = await import('@tauri-apps/api/core');
+      console.log('DeleteRule: invoke function available:', typeof invoke);
+      console.log('DeleteRule: window.__TAURI__ available:', !!window.__TAURI__);
+      
+      console.log('DeleteRule: Calling invoke...');
       await invoke('delete_block_rule_command', { ruleId });
+      console.log('DeleteRule: Delete command executed successfully');
+      
       onRefresh();
     } catch (error) {
-      console.error('Failed to delete block rule:', error);
+      console.error('DeleteRule: Delete command failed:', error);
+      console.error('DeleteRule: Error type:', typeof error);
+      console.error('DeleteRule: Error message:', error instanceof Error ? error.message : String(error));
+      alert(`Failed to delete block rule: ${error}`);
+    } finally {
+      setDeletingRuleId(null);
     }
   };
 
@@ -171,13 +193,24 @@ export function BlockRulesManager({ blockRules, deviceId, onRefresh }: BlockRule
                 >
                   Edit
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
+                <button
                   onClick={() => handleDeleteRule(rule.id)}
+                  disabled={deletingRuleId === rule.id}
+                  className={`
+                    group relative inline-flex items-center justify-center
+                    px-3 py-1.5 rounded-md font-medium text-sm leading-5
+                    transition-all duration-200 ease-out
+                    border border-transparent
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
+                    ${deletingRuleId === rule.id 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed shadow-sm' 
+                      : 'bg-red-500 hover:bg-red-600 active:bg-red-700 text-white cursor-pointer shadow-sm hover:shadow-md'
+                    }
+                  `}
+                  style={{ pointerEvents: 'auto' }}
                 >
-                  Delete
-                </Button>
+                  {deletingRuleId === rule.id ? 'Deleting...' : 'Delete'}
+                </button>
               </div>
             </CardContent>
           </Card>

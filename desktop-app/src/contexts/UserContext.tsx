@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabaseClient';
+import { getClient } from '@/lib/supabaseClient';
 
 interface UserContextType {
   user: User | null;
@@ -18,7 +18,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = getClient();
 
   // Function to trigger sync (will be called from useSync hook)
   const triggerSync = async () => {

@@ -7,7 +7,7 @@
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build && npm run export"
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "withGlobalTauri": true,
@@ -38,6 +38,14 @@
   "plugins": {
     "sql": {
       "preload": ["sqlite:usage.db"]
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/mk1316/loopd/releases/latest/download/{{target}}/{{current_version}}"
+      ],
+      "pubkey": "RWTx5Zr1tiHQLwG9keckT0c45M3AGVeHDqD6PY11BZpxoTjpBqBHmUog",
+      "dialog": true
     }
   }
 }

@@ -1,6 +1,6 @@
 export { CurrentAppDisplay } from './CurrentAppDisplay';
 export { DeviceIdDisplay } from './DeviceIdDisplay';
-export { UsageDataDisplay } from './UsageDataDisplay';
+
 export { ClearDataButton } from './ClearDataButton'; 
 export { ProtectedRoute } from './ProtectedRoute';
 export { UserProfile } from './UserProfile';
@@ -10,4 +10,5 @@ export { DaySelector } from './DaySelector';
 export { SyncStatus } from './SyncStatus';
 export { BlockScreen } from './BlockScreen';
 export { BlockRulesManager } from './BlockRulesManager';
-export { BlockingTest } from './BlockingTest'; 
+export { BlockingTest } from './BlockingTest';
+export { AuthLayout } from './AuthLayout'; 

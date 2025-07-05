@@ -11,9 +11,10 @@ interface BlockScreenProps {
   blockStatus: BlockStatus;
   deviceId: string;
   onOverride?: () => void;
+  onClose?: () => void;
 }
 
-export function BlockScreen({ blockStatus, deviceId, onOverride }: BlockScreenProps) {
+export function BlockScreen({ blockStatus, deviceId, onOverride, onClose }: BlockScreenProps) {
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
   const [isOverriding, setIsOverriding] = useState(false);
@@ -68,7 +69,17 @@ export function BlockScreen({ blockStatus, deviceId, onOverride }: BlockScreenPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <Card className="w-full max-w-md mx-4">
+      <Card className="w-full max-w-md mx-4 relative">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold focus:outline-none"
+            aria-label="Close block screen"
+            type="button"
+          >
+            ×
+          </button>
+        )}
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-red-600">
             ⛔ App Blocked

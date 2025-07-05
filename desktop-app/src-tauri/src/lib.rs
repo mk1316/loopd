@@ -3,6 +3,7 @@ pub mod usage;
 pub mod database;
 pub mod supabase;
 pub mod blocking;
+pub mod updater;
 
 use blocking::BLOCKING_SYSTEM;
 
@@ -118,7 +119,7 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
         // Start the blocking evaluation loop in a separate task
         let blocking_db = db.clone();
         let blocking_app_handle = app_handle.clone();
-        let blocking_device_id = device_id.clone();
+        let _blocking_device_id = device_id.clone();
         tauri::async_runtime::spawn(async move {
             loop {
                 // Get current active app
@@ -143,7 +144,7 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                         let (device_id, rules, active_overrides) = blocking_data;
                         let mut temp_blocking_system = blocking::BlockingSystem::new(device_id);
                         temp_blocking_system.update_rules(rules);
-                        for (app, time) in active_overrides {
+                        for (app, _time) in active_overrides {
                             temp_blocking_system.add_override(app);
                         }
                         
@@ -232,7 +233,7 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                                     let (device_id, rules, active_overrides) = blocking_data;
                                     let mut temp_blocking_system = blocking::BlockingSystem::new(device_id);
                                     temp_blocking_system.update_rules(rules);
-                                    for (app, time) in active_overrides {
+                                    for (app, _time) in active_overrides {
                                         temp_blocking_system.add_override(app);
                                     }
                                     
@@ -306,7 +307,7 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                                     let (device_id, rules, active_overrides) = blocking_data;
                                     let mut temp_blocking_system = blocking::BlockingSystem::new(device_id);
                                     temp_blocking_system.update_rules(rules);
-                                    for (app, time) in active_overrides {
+                                    for (app, _time) in active_overrides {
                                         temp_blocking_system.add_override(app);
                                     }
                                     
