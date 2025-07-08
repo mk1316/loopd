@@ -1,6 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+let supabase: ReturnType<typeof createBrowserClient> | null = null;
+
 export function getClient() {
+  if (supabase) return supabase;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -12,7 +16,7 @@ export function getClient() {
     throw new Error('Supabase configuration is missing. Please check your environment variables.')
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       // Auto refresh the session
       autoRefreshToken: true,
@@ -29,4 +33,6 @@ export function getClient() {
       },
     },
   })
+
+  return supabase;
 }
