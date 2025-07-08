@@ -3,17 +3,24 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
+import { usePostHog } from '@/hooks/usePostHog';
 import CustomAuthForm from '@/components/CustomAuthForm';
 
 export default function LoginPage() {
   const { user, loading } = useUser();
   const router = useRouter();
+  const posthog = usePostHog();
 
   useEffect(() => {
     if (!loading && user) {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [user, loading, router]);
+
+  // Track page view
+  useEffect(() => {
+    posthog.trackPageView('login_page');
+  }, [posthog]);
 
   // Show loading state while checking authentication
   if (loading) {

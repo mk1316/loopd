@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { posthog } from '@/lib/posthog'
 
 interface UserContextType {
   user: User | null;
@@ -26,6 +27,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      // Identify user in PostHog if logged in
+      if (session?.user) {
+        posthog?.identify(session.user.id, { email: session.user.email });
+      } else {
+        posthog?.reset();
+      }
     };
 
     getInitialSession();
@@ -36,6 +43,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        // Identify user in PostHog if logged in
+        if (session?.user) {
+          posthog?.identify(session.user.id, { email: session.user.email });
+        } else {
+          posthog?.reset();
+        }
       }
     );
 

@@ -39,6 +39,27 @@ export async function updateSession(request: NextRequest) {
             console.error('Middleware session error:', error)
         }
 
+        // Get the current path
+        const { pathname } = request.nextUrl
+
+        // Public routes that don't require authentication
+        const publicRoutes = ['/', '/login']
+        const isPublicRoute = publicRoutes.includes(pathname)
+
+        // If user is not authenticated and trying to access a protected route
+        if (!session && !isPublicRoute) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/login'
+            return NextResponse.redirect(url)
+        }
+
+        // If user is authenticated and trying to access login page or root, redirect to dashboard
+        if (session && (pathname === '/login' || pathname === '/')) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/dashboard'
+            return NextResponse.redirect(url)
+        }
+
         // Add security headers
         supabaseResponse.headers.set('X-Frame-Options', 'DENY')
         supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')
