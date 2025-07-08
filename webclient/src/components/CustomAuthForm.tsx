@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { usePostHog } from '@/hooks/usePostHog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { posthog } from '@/lib/posthog';
 
 const supabase = createClient();
 
@@ -19,7 +19,6 @@ interface ValidationErrors {
 
 export default function CustomAuthForm() {
   const searchParams = useSearchParams();
-  const posthog = usePostHog();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -96,19 +95,20 @@ export default function CustomAuthForm() {
     
     try {
       if (mode === 'sign-in') {
-        // Track login attempt
-        posthog.trackLogin('email', { email });
-        
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
+          posthog?.capture('login_error', { 
+            error_message: error.message,
+            method: 'email_password'
+          });
           setError(getErrorMessage(error.message));
         } else {
+          posthog?.capture('login_success', { 
+            method: 'email_password'
+          });
           setSuccess('Signed in successfully!');
         }
       } else {
-        // Track signup attempt
-        posthog.trackSignUp('email', { email });
-        
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -120,12 +120,24 @@ export default function CustomAuthForm() {
           }
         });
         if (error) {
+          posthog?.capture('signup_error', { 
+            error_message: error.message,
+            method: 'email_password'
+          });
           setError(getErrorMessage(error.message));
         } else {
+          posthog?.capture('signup_success', { 
+            method: 'email_password'
+          });
           setSuccess('Check your email to verify your account!');
         }
       }
     } catch (err) {
+      posthog?.capture('error_occurred', { 
+        error_type: 'authentication_exception',
+        error_message: err instanceof Error ? err.message : 'Unknown error',
+        method: mode === 'sign-in' ? 'email_password_login' : 'email_password_signup'
+      });
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -136,9 +148,6 @@ export default function CustomAuthForm() {
     setLoading(true);
     setError('');
     
-    // Track social login attempt
-    posthog.trackLogin(provider, { provider });
-    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -148,9 +157,22 @@ export default function CustomAuthForm() {
       });
       
       if (error) {
+        posthog?.capture('login_error', { 
+          error_message: error.message,
+          method: `oauth_${provider}`
+        });
         setError(getErrorMessage(error.message));
+      } else {
+        posthog?.capture('login_success', { 
+          method: `oauth_${provider}`
+        });
       }
     } catch (err) {
+      posthog?.capture('error_occurred', { 
+        error_type: 'social_login_exception',
+        error_message: err instanceof Error ? err.message : 'Unknown error',
+        method: `oauth_${provider}`
+      });
       setError('Social login failed. Please try again.');
     } finally {
       setLoading(false);
