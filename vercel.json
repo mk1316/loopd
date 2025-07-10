@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd webclient && npm run build",
+  "outputDirectory": "webclient/.next",
+  "installCommand": "cd webclient && npm install",
+  "framework": "nextjs",
+  "rootDirectory": "webclient"
+} 

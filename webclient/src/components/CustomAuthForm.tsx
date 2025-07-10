@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ interface ValidationErrors {
   confirmPassword?: string;
 }
 
-export default function CustomAuthForm() {
+function CustomAuthFormInner() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -405,5 +405,25 @@ export default function CustomAuthForm() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CustomAuthForm() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-md mx-auto">
+        <Card className="bg-slate-800/50 backdrop-blur-xl border-white/10 shadow-2xl">
+          <CardContent className="p-6">
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-600 rounded w-3/4 mb-4"></div>
+              <div className="h-10 bg-gray-600 rounded mb-4"></div>
+              <div className="h-10 bg-gray-600 rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <CustomAuthFormInner />
+    </Suspense>
   );
 } 
