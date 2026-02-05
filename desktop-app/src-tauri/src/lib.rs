@@ -351,7 +351,7 @@ pub fn start_tracking(db: Db, aw_db: AwDb, app_handle: tauri::AppHandle) {
 
                                 let heartbeat = aw_models::Heartbeat {
                                     timestamp: chrono::Utc::now(),
-                                    duration: 1.0, // 1 second heartbeat
+                                    duration: 0.0, // Duration is calculated from timestamp diff during merge
                                     data: serde_json::json!({
                                         "app": app_name,
                                         "title": title

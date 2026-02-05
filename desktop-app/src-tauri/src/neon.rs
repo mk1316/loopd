@@ -64,7 +64,19 @@ impl NeonClient {
     async fn execute(&self, query: &str, params: &[Value]) -> Result<Vec<Value>> {
         // Neon serverless driver uses a specific HTTP endpoint
         // Format: https://<endpoint-host>/sql
-        let url = format!("{}/sql", self.connection_string.replace("postgres://", "https://").replace("postgresql://", "https://"));
+        // Must handle query parameters properly (e.g., ?sslmode=require)
+        let base_url = self.connection_string
+            .replace("postgres://", "https://")
+            .replace("postgresql://", "https://");
+
+        // Parse URL to properly insert /sql before query string
+        let url = if let Some(query_start) = base_url.find('?') {
+            // Insert /sql before the query string
+            format!("{}/sql{}", &base_url[..query_start], &base_url[query_start..])
+        } else {
+            // No query string, just append /sql
+            format!("{}/sql", base_url)
+        };
 
         let body = serde_json::json!({
             "query": query,

@@ -71,19 +71,28 @@ impl QueryContext {
     pub async fn execute(&mut self, query: &str) -> Result<QueryResult, String> {
         let query = query.trim();
 
-        // Handle variable assignment
-        if let Some(eq_pos) = query.find('=') {
-            let var_name = query[..eq_pos].trim();
-            let expr = query[eq_pos + 1..].trim();
-            let result = self.evaluate(expr).await?;
-            self.variables.insert(var_name.to_string(), result.clone());
-            return Ok(result);
-        }
-
-        // Handle return statement
+        // Handle return statement first
         if query.starts_with("RETURN") || query.starts_with("return") {
             let expr = query[6..].trim();
             return self.evaluate(expr).await;
+        }
+
+        // Handle variable assignment - but only if '=' appears before any '('
+        // This prevents misparse of function arguments containing '=' like ["param=value"]
+        if let Some(eq_pos) = query.find('=') {
+            let paren_pos = query.find('(');
+            // Only treat as assignment if '=' comes before '(' or there's no '('
+            // AND the left side is a valid identifier (alphanumeric/underscore only)
+            if paren_pos.map_or(true, |p| eq_pos < p) {
+                let var_name = query[..eq_pos].trim();
+                // Validate that var_name is a valid identifier (no special chars except underscore)
+                if !var_name.is_empty() && var_name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    let expr = query[eq_pos + 1..].trim();
+                    let result = self.evaluate(expr).await?;
+                    self.variables.insert(var_name.to_string(), result.clone());
+                    return Ok(result);
+                }
+            }
         }
 
         self.evaluate(query).await
