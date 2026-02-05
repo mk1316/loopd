@@ -343,10 +343,14 @@ pub fn start_tracking(db: Db, aw_db: AwDb, app_handle: tauri::AppHandle) {
                             let bucket_id_clone = bucket_id.clone();
                             let app_name = current_app_name.clone();
                             tauri::async_runtime::spawn(async move {
-                                // Get the current window title
+                                // Get the current window title - skip heartbeat if we can't get it
+                                // Using empty string would cause heartbeat comparison to fail and fragment events
                                 let title = match crate::usage::get_active_app_with_title().await {
                                     Ok(active) => active.title,
-                                    Err(_) => String::new(),
+                                    Err(e) => {
+                                        log::debug!("Skipping heartbeat - couldn't get window title: {}", e);
+                                        return; // Skip this heartbeat, next one will succeed
+                                    }
                                 };
 
                                 let heartbeat = aw_models::Heartbeat {

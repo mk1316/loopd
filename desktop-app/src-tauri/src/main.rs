@@ -4,6 +4,8 @@
 use tauri::Manager;
 use std::sync::Arc;
 use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteConnectOptions;
+use std::str::FromStr;
 use app_lib::{database::Database, aw_database::AwDatabase, start_tracking, aw_server, get_or_create_device_id};
 use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
@@ -106,20 +108,17 @@ fn main() {
             // The plugin will resolve "sqlite:usage.db" relative to AppConfig, so we do the same.
             let db_url = format!("sqlite://{}", db_path.to_string_lossy());
 
-            // Connect the pool (will create the file if missing)
+            // Connect the pool with foreign key constraints enabled for ALL connections
+            // Using SqliteConnectOptions ensures every connection in the pool has foreign keys ON
             let pool = tauri::async_runtime::block_on(async {
-                let pool = SqlitePool::connect(&db_url)
-                    .await
-                    .expect("Failed to connect to SQLite database");
+                let options = SqliteConnectOptions::from_str(&db_url)
+                    .expect("Failed to parse database URL")
+                    .create_if_missing(true)
+                    .pragma("foreign_keys", "ON");  // Applied to every connection
 
-                // Enable foreign key constraints - SQLite requires this to be explicitly enabled
-                // This ensures ON DELETE CASCADE works properly for bucket/event relationships
-                sqlx::query("PRAGMA foreign_keys = ON")
-                    .execute(&pool)
+                SqlitePool::connect_with(options)
                     .await
-                    .expect("Failed to enable foreign key constraints");
-
-                pool
+                    .expect("Failed to connect to SQLite database")
             });
 
             // Note: tauri_plugin_sql handles migrations automatically
