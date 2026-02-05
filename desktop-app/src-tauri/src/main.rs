@@ -4,7 +4,7 @@
 use tauri::Manager;
 use std::sync::Arc;
 use sqlx::SqlitePool;
-use app_lib::{database::Database, aw_database::AwDatabase, start_tracking};
+use app_lib::{database::Database, aw_database::AwDatabase, start_tracking, aw_server, get_or_create_device_id};
 use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 use tauri::{
@@ -153,6 +153,16 @@ fn main() {
 
             // Start background tracking, passing the same Arc
             start_tracking(db.clone(), aw_db.clone(), app.handle().clone());
+
+            // Start ActivityWatch-compatible REST API server on port 5600
+            let aw_db_for_server = aw_db.clone();
+            let hostname = gethostname::gethostname()
+                .to_string_lossy()
+                .to_string();
+            let device_id = get_or_create_device_id(&app.handle());
+            tauri::async_runtime::spawn(async move {
+                aw_server::start_server(aw_db_for_server, hostname, device_id, 5600).await;
+            });
 
             // Setup updater events
             app_lib::updater::setup_updater_events(app.handle().clone());

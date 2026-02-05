@@ -7,6 +7,7 @@ pub mod updater;
 pub mod aw_models;
 pub mod aw_database;
 pub mod aw_commands;
+pub mod aw_server;
 
 use blocking::BLOCKING_SYSTEM;
 

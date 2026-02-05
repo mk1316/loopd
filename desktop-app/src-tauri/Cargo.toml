@@ -35,6 +35,11 @@ reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-store = "2.3.0"
 gethostname = "0.5"
 
+# ActivityWatch REST API server
+axum = "0.7"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+
 # OS-specific dependencies for app detection
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.52", features = [
