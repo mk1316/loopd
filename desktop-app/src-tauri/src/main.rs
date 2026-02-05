@@ -108,9 +108,18 @@ fn main() {
 
             // Connect the pool (will create the file if missing)
             let pool = tauri::async_runtime::block_on(async {
-                SqlitePool::connect(&db_url)
+                let pool = SqlitePool::connect(&db_url)
                     .await
-                    .expect("Failed to connect to SQLite database")
+                    .expect("Failed to connect to SQLite database");
+
+                // Enable foreign key constraints - SQLite requires this to be explicitly enabled
+                // This ensures ON DELETE CASCADE works properly for bucket/event relationships
+                sqlx::query("PRAGMA foreign_keys = ON")
+                    .execute(&pool)
+                    .await
+                    .expect("Failed to enable foreign key constraints");
+
+                pool
             });
 
             // Note: tauri_plugin_sql handles migrations automatically

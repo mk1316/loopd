@@ -400,15 +400,26 @@ impl AwDatabase {
 }
 
 /// Helper to parse datetime from SQLite string
+/// Supports both RFC3339 format (new events) and SQLite datetime format (legacy)
 fn parse_datetime(s: &str) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|_| {
-            // Try parsing as SQLite datetime format
-            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
-                .map(|ndt| DateTime::from_naive_utc_and_offset(ndt, Utc))
-                .unwrap_or_else(|_| Utc::now())
-        })
+    // First try RFC3339 format (e.g., "2024-01-15T10:30:00Z")
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return dt.with_timezone(&Utc);
+    }
+
+    // Try SQLite datetime format (e.g., "2024-01-15 10:30:00")
+    if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return DateTime::from_naive_utc_and_offset(ndt, Utc);
+    }
+
+    // Log warning for unparseable timestamps - this indicates data corruption
+    eprintln!(
+        "[AW-DATABASE] Warning: Failed to parse timestamp '{}', using epoch time. This may indicate data corruption.",
+        s
+    );
+    // Return Unix epoch (1970-01-01) instead of current time to make the issue visible
+    // and avoid corrupting historical data ordering
+    DateTime::from_timestamp(0, 0).unwrap_or_else(Utc::now)
 }
 
 #[cfg(test)]
