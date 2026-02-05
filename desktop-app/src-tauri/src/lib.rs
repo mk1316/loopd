@@ -4,6 +4,9 @@ pub mod database;
 pub mod supabase;
 pub mod blocking;
 pub mod updater;
+pub mod aw_models;
+pub mod aw_database;
+pub mod aw_commands;
 
 use blocking::BLOCKING_SYSTEM;
 
@@ -21,6 +24,9 @@ use tauri_plugin_store::Builder as StorePluginBuilder;
 /// Keeping this alias public ensures we always use the same type everywhere
 /// and avoid the mismatching-type runtime panic described in the Tauri docs.
 pub type Db = Arc<Database>;
+
+/// Shared ActivityWatch database handle
+pub type AwDb = Arc<aw_database::AwDatabase>;
 
 // Get or create persistent device ID stored in app data directory
 pub fn get_or_create_device_id(app_handle: &tauri::AppHandle) -> String {
@@ -73,15 +79,19 @@ pub async fn reset_tracking(db: &Db) -> Result<String, Box<dyn std::error::Error
 }
 
 // Start tracking usage
-pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
+pub fn start_tracking(db: Db, aw_db: AwDb, app_handle: tauri::AppHandle) {
     println!("[TRACKER] start_tracking: tracker started");
     tauri::async_runtime::spawn(async move {
         let mut current_app: Option<String> = None;
         let mut last_switch_time: chrono::DateTime<Local> = Local::now();
 
-        // Get the persistent device ID
+        // Get the persistent device ID and hostname
         let device_id = get_or_create_device_id(&app_handle);
+        let hostname = gethostname::gethostname()
+            .to_string_lossy()
+            .to_string();
         println!("[TRACKER] Using persistent device ID: {}", device_id);
+        println!("[TRACKER] Hostname: {}", hostname);
 
         // Initialize device in database with the persistent ID
         match db.initialize_device_with_id(device_id.clone(), "Desktop App".to_string(), "macOS".to_string()).await {
@@ -90,6 +100,23 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                 println!("[TRACKER] Failed to initialize device: {}", e);
                 return;
             }
+        }
+
+        // Initialize ActivityWatch bucket for window tracking
+        let bucket_id = format!("aw-watcher-window_{}", hostname);
+        let bucket = aw_models::Bucket {
+            id: bucket_id.clone(),
+            name: Some("Window Activity".to_string()),
+            bucket_type: aw_models::bucket_types::CURRENT_WINDOW.to_string(),
+            client: aw_models::clients::LOOPD.to_string(),
+            hostname: hostname.clone(),
+            created: chrono::Utc::now(),
+            data: None,
+            last_updated: None,
+        };
+        match aw_db.get_or_create_bucket(&bucket).await {
+            Ok(_) => println!("[TRACKER] AW bucket initialized: {}", bucket_id),
+            Err(e) => println!("[TRACKER] Failed to initialize AW bucket: {}", e),
         }
 
         // Create and store the usage tracker
@@ -261,21 +288,37 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
 
                             // Handle database operations in a separate task
                             let db_clone = db.clone();
+                            let aw_db_clone = aw_db.clone();
                             let device_id = device_id.clone();
+                            let bucket_id_clone = bucket_id.clone();
                             tauri::async_runtime::spawn(async move {
-                                // End previous session
+                                // End previous session (legacy)
                                 if let Err(e) = db_clone.end_current_session(&device_id).await {
                                     log::warn!("Failed to end session: {}", e);
                                 }
 
-                                // Start new session
+                                // Start new session (legacy)
                                 let title_str = window_title.clone().unwrap_or_default();
                                 if let Err(e) = db_clone.start_new_session(
                                     &device_id,
                                     app_name.clone(),
-                                    title_str,
+                                    title_str.clone(),
                                 ).await {
                                     log::warn!("Failed to start session: {}", e);
+                                }
+
+                                // Send heartbeat to ActivityWatch bucket
+                                let heartbeat = aw_models::Heartbeat {
+                                    timestamp: chrono::Utc::now(),
+                                    duration: 0.0, // Initial duration, will be extended by subsequent heartbeats
+                                    data: serde_json::json!({
+                                        "app": app_name,
+                                        "title": title_str
+                                    }),
+                                };
+                                // Use 5 second pulsetime for merging events
+                                if let Err(e) = aw_db_clone.heartbeat(&bucket_id_clone, &heartbeat, 5.0).await {
+                                    log::warn!("Failed to send AW heartbeat: {}", e);
                                 }
                             });
                         }
@@ -291,6 +334,33 @@ pub fn start_tracking(db: Db, app_handle: tauri::AppHandle) {
                         });
                     }
                     usage::UpdateAction::None => {
+                        // Send heartbeat to keep current event alive
+                        if let Some(current_app_name) = &current_app {
+                            let aw_db_clone = aw_db.clone();
+                            let bucket_id_clone = bucket_id.clone();
+                            let app_name = current_app_name.clone();
+                            tauri::async_runtime::spawn(async move {
+                                // Get the current window title
+                                let title = match crate::usage::get_active_app_with_title().await {
+                                    Ok(active) => active.title,
+                                    Err(_) => String::new(),
+                                };
+
+                                let heartbeat = aw_models::Heartbeat {
+                                    timestamp: chrono::Utc::now(),
+                                    duration: 1.0, // 1 second heartbeat
+                                    data: serde_json::json!({
+                                        "app": app_name,
+                                        "title": title
+                                    }),
+                                };
+                                // Use 5 second pulsetime for merging events
+                                if let Err(e) = aw_db_clone.heartbeat(&bucket_id_clone, &heartbeat, 5.0).await {
+                                    log::warn!("Failed to send AW heartbeat: {}", e);
+                                }
+                            });
+                        }
+
                         // Evaluate blocking for current app even when no change
                         if let Some(current_app_name) = &current_app {
                             let app_name = current_app_name.clone();

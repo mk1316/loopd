@@ -33,6 +33,7 @@ sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "sqlite", "chron
 tokio = { version = "1.45.1", features = ["time", "full"] }
 reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-store = "2.3.0"
+gethostname = "0.5"
 
 # OS-specific dependencies for app detection
 [target.'cfg(windows)'.dependencies]

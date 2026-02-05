@@ -4,7 +4,7 @@
 use tauri::Manager;
 use std::sync::Arc;
 use sqlx::SqlitePool;
-use app_lib::{database::Database, start_tracking};
+use app_lib::{database::Database, aw_database::AwDatabase, start_tracking};
 use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 use tauri::{
@@ -29,6 +29,12 @@ fn main() {
             version: 2,
             description: "create_block_rules_tables",
             sql: include_str!("../migrations/0002_block_rules.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "activitywatch_compat",
+            sql: include_str!("../migrations/0003_activitywatch_compat.sql"),
             kind: MigrationKind::Up,
         },
     ];
@@ -111,7 +117,10 @@ fn main() {
             // No need for additional sqlx::migrate! call
 
             // Wrap the Database in an Arc so it can be shared safely
-            let db = Arc::new(Database::new(pool));
+            let db = Arc::new(Database::new(pool.clone()));
+
+            // Create ActivityWatch-compatible database
+            let aw_db = Arc::new(AwDatabase::new(pool));
 
             // --- Use the local db variable for any setup work before manage ---
             tauri::async_runtime::block_on(async {
@@ -138,11 +147,12 @@ fn main() {
                 }
             });
 
-            // Make the Database available as managed state for commands
+            // Make the databases available as managed state for commands
             app.manage(db.clone());
+            app.manage(aw_db.clone());
 
             // Start background tracking, passing the same Arc
-            start_tracking(db.clone(), app.handle().clone());
+            start_tracking(db.clone(), aw_db.clone(), app.handle().clone());
 
             // Setup updater events
             app_lib::updater::setup_updater_events(app.handle().clone());
@@ -178,6 +188,7 @@ fn main() {
 
     tauri_builder
         .invoke_handler(tauri::generate_handler![
+            // Legacy commands
             app_lib::usage::get_active_app,
             app_lib::usage::get_active_app_with_title,
             app_lib::usage::check_accessibility_permissions_command,
@@ -208,6 +219,24 @@ fn main() {
             app_lib::updater::check_for_updates,
             app_lib::updater::install_update,
             app_lib::updater::get_current_version,
+            // ActivityWatch-compatible commands
+            app_lib::aw_commands::aw_get_info,
+            app_lib::aw_commands::aw_get_buckets,
+            app_lib::aw_commands::aw_get_bucket,
+            app_lib::aw_commands::aw_create_bucket,
+            app_lib::aw_commands::aw_delete_bucket,
+            app_lib::aw_commands::aw_get_events,
+            app_lib::aw_commands::aw_get_event,
+            app_lib::aw_commands::aw_insert_events,
+            app_lib::aw_commands::aw_delete_event,
+            app_lib::aw_commands::aw_get_event_count,
+            app_lib::aw_commands::aw_heartbeat,
+            app_lib::aw_commands::aw_get_usage_summary,
+            app_lib::aw_commands::aw_get_current_event,
+            app_lib::aw_commands::aw_get_setting,
+            app_lib::aw_commands::aw_set_setting,
+            app_lib::aw_commands::aw_export_bucket,
+            app_lib::aw_commands::aw_export_all,
             minimize_to_tray,
             test_command
         ])

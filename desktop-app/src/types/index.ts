@@ -1,4 +1,137 @@
+// ============================================================
+// ActivityWatch-compatible types
+// ============================================================
 
+/**
+ * ActivityWatch Bucket - container for events from a specific watcher
+ */
+export interface AWBucket {
+  id: string;
+  name?: string;
+  type: string; // e.g., "currentwindow", "afkstatus", "web.tab.current"
+  client: string; // e.g., "aw-watcher-window", "loopd", "awatcher"
+  hostname: string;
+  created: string; // ISO8601 timestamp
+  data?: Record<string, unknown>;
+  last_updated?: string; // ISO8601 timestamp
+}
+
+/**
+ * ActivityWatch Event - activity data with timestamp and duration
+ */
+export interface AWEvent {
+  id?: number;
+  bucket_id?: string;
+  timestamp: string; // ISO8601 timestamp
+  duration: number; // seconds
+  data: Record<string, unknown>;
+}
+
+/**
+ * Window event data
+ */
+export interface AWWindowEventData {
+  app: string;
+  title: string;
+}
+
+/**
+ * AFK event data
+ */
+export interface AWAfkEventData {
+  status: 'afk' | 'not-afk';
+}
+
+/**
+ * Web tab event data
+ */
+export interface AWWebTabEventData {
+  url: string;
+  title: string;
+  audible?: boolean;
+  incognito?: boolean;
+}
+
+/**
+ * Editor activity event data
+ */
+export interface AWEditorEventData {
+  file: string;
+  project: string;
+  language: string;
+}
+
+/**
+ * Heartbeat request for efficient event submission
+ */
+export interface AWHeartbeat {
+  timestamp: string; // ISO8601 timestamp
+  duration: number;
+  data: Record<string, unknown>;
+}
+
+/**
+ * Server info response
+ */
+export interface AWServerInfo {
+  hostname: string;
+  version: string;
+  testing: boolean;
+  device_id: string;
+}
+
+/**
+ * Bucket export format (bucket with all events)
+ */
+export interface AWBucketExport {
+  id: string;
+  name?: string;
+  type: string;
+  client: string;
+  hostname: string;
+  created: string;
+  data?: Record<string, unknown>;
+  last_updated?: string;
+  events: AWEvent[];
+}
+
+/**
+ * Query parameters for getting events
+ */
+export interface AWGetEventsParams {
+  start?: string; // ISO8601 timestamp
+  end?: string; // ISO8601 timestamp
+  limit?: number;
+}
+
+/**
+ * Usage summary entry
+ */
+export interface AWUsageSummary {
+  app: string;
+  total_seconds: number;
+}
+
+// Standard bucket types
+export const AW_BUCKET_TYPES = {
+  CURRENT_WINDOW: 'currentwindow',
+  AFK_STATUS: 'afkstatus',
+  WEB_TAB: 'web.tab.current',
+  EDITOR_ACTIVITY: 'app.editor.activity',
+} as const;
+
+// Standard client names
+export const AW_CLIENTS = {
+  LOOPD: 'loopd',
+  AW_WATCHER_WINDOW: 'aw-watcher-window',
+  AW_WATCHER_AFK: 'aw-watcher-afk',
+  AW_WATCHER_WEB: 'aw-watcher-web',
+  AWATCHER: 'awatcher',
+} as const;
+
+// ============================================================
+// Legacy types (for backwards compatibility)
+// ============================================================
 
 // Session data types
 export interface Session {
