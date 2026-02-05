@@ -130,6 +130,47 @@ export const AW_CLIENTS = {
 } as const;
 
 // ============================================================
+// Neon Cloud Sync types
+// ============================================================
+
+/**
+ * Neon event record for cloud storage
+ */
+export interface NeonEvent {
+  id?: number;
+  bucket_id: string;
+  device_id: string;
+  timestamp: string; // ISO8601 timestamp
+  duration: number;
+  data: Record<string, unknown>;
+  synced_at?: string;
+}
+
+/**
+ * Neon bucket record for cloud storage
+ */
+export interface NeonBucket {
+  id: string;
+  device_id: string;
+  name?: string;
+  bucket_type: string;
+  client: string;
+  hostname: string;
+  created: string;
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Neon sync status
+ */
+export interface NeonSyncStatus {
+  connected: boolean;
+  lastSync?: string;
+  pendingEvents: number;
+  error?: string;
+}
+
+// ============================================================
 // Legacy types (for backwards compatibility)
 // ============================================================
 

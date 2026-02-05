@@ -15,6 +15,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 use crate::aw_database::AwDatabase;
 use crate::aw_models::{Bucket, Event, GetEventsParams, Heartbeat, ServerInfo};
+use crate::aw_query::{QueryRequest, execute_query};
 
 /// Shared state for the API server
 #[derive(Clone)]
@@ -59,6 +60,9 @@ pub async fn start_server(aw_db: Arc<AwDatabase>, hostname: String, device_id: S
         // Export endpoints
         .route("/api/0/buckets/:bucket_id/export", get(export_bucket))
         .route("/api/0/export", get(export_all))
+        // Query endpoint
+        .route("/api/0/query", post(query))
+        .route("/api/0/query/", post(query))
         // Add CORS and state
         .layer(cors)
         .with_state(state);
@@ -321,4 +325,29 @@ async fn export_all(
     }
 
     Ok(Json(exports))
+}
+
+// ========== Query Endpoint ==========
+
+async fn query(
+    State(state): State<AppState>,
+    Json(request): Json<QueryRequest>,
+) -> Result<Json<Vec<JsonValue>>, (StatusCode, String)> {
+    let results = execute_query(state.aw_db.clone(), request)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    // Convert results to JSON values
+    let json_results: Vec<JsonValue> = results.into_iter().map(|r| {
+        match r {
+            crate::aw_query::QueryResult::Events(events) => serde_json::to_value(events).unwrap_or(JsonValue::Null),
+            crate::aw_query::QueryResult::Summary(summary) => serde_json::to_value(summary).unwrap_or(JsonValue::Null),
+            crate::aw_query::QueryResult::Categories(cats) => serde_json::to_value(cats).unwrap_or(JsonValue::Null),
+            crate::aw_query::QueryResult::Number(n) => json!(n),
+            crate::aw_query::QueryResult::String(s) => json!(s),
+            crate::aw_query::QueryResult::Value(v) => v,
+        }
+    }).collect();
+
+    Ok(Json(json_results))
 }

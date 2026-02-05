@@ -8,6 +8,8 @@ pub mod aw_models;
 pub mod aw_database;
 pub mod aw_commands;
 pub mod aw_server;
+pub mod aw_query;
+pub mod neon;
 
 use blocking::BLOCKING_SYSTEM;
 

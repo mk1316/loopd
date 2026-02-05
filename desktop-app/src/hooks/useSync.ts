@@ -1,38 +1,36 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { useUser } from '@/contexts/UserContext';
 import { logError } from '@/lib/errorHandling';
+import type { AWBucket, AWEvent, NeonBucket, NeonEvent } from '@/types';
 
 export interface SyncStatus {
   isSyncing: boolean;
   lastSyncTime: string | null;
   unsyncedCount: number;
   error: string | null;
+  connected: boolean;
 }
 
-// Add Session interface for unsynced sessions
-export interface Session {
-  id: string;
-  device_id: string;
-  user_id: string | null;
-  app_name: string;
-  window_title: string;
-  start_time: string;
-  end_time: string | null;
-  duration_sec: number;
-  created_at: string;
+export interface SyncConfig {
+  connectionString: string;
+  autoSync?: boolean;
+  syncInterval?: number; // milliseconds, default 30000
 }
 
-export function useSync() {
-  const { user, session } = useUser();
+/**
+ * Hook for syncing ActivityWatch data with Neon cloud database
+ */
+export function useSync(config?: SyncConfig) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isSyncing: false,
     lastSyncTime: null,
     unsyncedCount: 0,
     error: null,
+    connected: false,
   });
 
   const [deviceId, setDeviceId] = useState<string>('');
+  const connectionStringRef = useRef<string | null>(config?.connectionString || null);
 
   // Get device ID on mount
   useEffect(() => {
@@ -47,32 +45,193 @@ export function useSync() {
     fetchDeviceId();
   }, []);
 
-  // Check for unsynced sessions
-  const checkUnsyncedSessions = useCallback(async () => {
+  // Update connection string when config changes
+  useEffect(() => {
+    if (config?.connectionString) {
+      connectionStringRef.current = config.connectionString;
+    }
+  }, [config?.connectionString]);
+
+  // Set connection string
+  const setConnectionString = useCallback((connectionString: string) => {
+    connectionStringRef.current = connectionString;
+  }, []);
+
+  // Test Neon connection
+  const testConnection = useCallback(async (connectionString?: string) => {
+    const connStr = connectionString || connectionStringRef.current;
+    if (!connStr) {
+      setSyncStatus(prev => ({
+        ...prev,
+        error: 'No Neon connection string configured',
+        connected: false,
+      }));
+      return false;
+    }
+
+    try {
+      await invoke('neon_test_connection', { connectionString: connStr });
+      if (connectionString) {
+        connectionStringRef.current = connectionString;
+      }
+      setSyncStatus(prev => ({
+        ...prev,
+        error: null,
+        connected: true,
+      }));
+      return true;
+    } catch (e) {
+      logError(e, 'testConnection');
+      setSyncStatus(prev => ({
+        ...prev,
+        error: 'Failed to connect to Neon',
+        connected: false,
+      }));
+      return false;
+    }
+  }, []);
+
+  // Initialize Neon schema
+  const initSchema = useCallback(async () => {
+    const connStr = connectionStringRef.current;
+    if (!connStr) {
+      setSyncStatus(prev => ({
+        ...prev,
+        error: 'No Neon connection string configured',
+      }));
+      return false;
+    }
+
+    try {
+      await invoke('neon_init_schema', { connectionString: connStr });
+      return true;
+    } catch (e) {
+      logError(e, 'initSchema');
+      setSyncStatus(prev => ({
+        ...prev,
+        error: 'Failed to initialize Neon schema',
+      }));
+      return false;
+    }
+  }, []);
+
+  // Get unsynced events count from local AW database
+  const checkUnsyncedEvents = useCallback(async () => {
     if (!deviceId) return;
 
     try {
-      const unsyncedSessions = await invoke<Session[]>('get_unsynced_sessions_command', { deviceId });
+      // Get buckets and count events
+      const buckets = await invoke<Record<string, AWBucket>>('aw_get_buckets');
+      let totalEvents = 0;
+
+      for (const bucketId of Object.keys(buckets)) {
+        const count = await invoke<number>('aw_get_event_count', { bucketId });
+        totalEvents += count;
+      }
+
       setSyncStatus(prev => ({
         ...prev,
-        unsyncedCount: unsyncedSessions.length,
+        unsyncedCount: totalEvents,
         error: null,
       }));
     } catch (e) {
-      logError(e, 'checkUnsyncedSessions');
+      logError(e, 'checkUnsyncedEvents');
       setSyncStatus(prev => ({
         ...prev,
-        error: 'Failed to check unsynced sessions',
+        error: 'Failed to check unsynced events',
       }));
     }
   }, [deviceId]);
 
-  // Manual sync function
-  const syncData = useCallback(async () => {
-    if (!user || !deviceId || !session) {
+  // Sync buckets to Neon
+  const syncBuckets = useCallback(async () => {
+    const connStr = connectionStringRef.current;
+    if (!connStr || !deviceId) {
+      return false;
+    }
+
+    try {
+      const buckets = await invoke<Record<string, AWBucket>>('aw_get_buckets');
+
+      for (const bucket of Object.values(buckets)) {
+        const neonBucket: NeonBucket = {
+          id: bucket.id,
+          device_id: deviceId,
+          name: bucket.name,
+          bucket_type: bucket.type,
+          client: bucket.client,
+          hostname: bucket.hostname,
+          created: bucket.created,
+          data: bucket.data,
+        };
+
+        await invoke('neon_sync_bucket', {
+          connectionString: connStr,
+          bucket: neonBucket,
+        });
+      }
+      return true;
+    } catch (e) {
+      logError(e, 'syncBuckets');
+      return false;
+    }
+  }, [deviceId]);
+
+  // Sync events to Neon
+  const syncEvents = useCallback(async (bucketId?: string, limit?: number) => {
+    const connStr = connectionStringRef.current;
+    if (!connStr || !deviceId) {
       setSyncStatus(prev => ({
         ...prev,
-        error: 'User not authenticated or device ID not available',
+        error: 'Not configured for sync',
+      }));
+      return 0;
+    }
+
+    try {
+      const buckets = await invoke<Record<string, AWBucket>>('aw_get_buckets');
+      const bucketIds = bucketId ? [bucketId] : Object.keys(buckets);
+      let totalSynced = 0;
+
+      for (const bid of bucketIds) {
+        const events = await invoke<AWEvent[]>('aw_get_events', {
+          bucketId: bid,
+          limit: limit || 1000,
+        });
+
+        if (events.length === 0) continue;
+
+        const neonEvents: NeonEvent[] = events.map(event => ({
+          id: event.id,
+          bucket_id: bid,
+          device_id: deviceId,
+          timestamp: event.timestamp,
+          duration: event.duration,
+          data: event.data,
+        }));
+
+        const synced = await invoke<number>('neon_sync_events', {
+          connectionString: connStr,
+          events: neonEvents,
+        });
+
+        totalSynced += synced;
+      }
+
+      return totalSynced;
+    } catch (e) {
+      logError(e, 'syncEvents');
+      return 0;
+    }
+  }, [deviceId]);
+
+  // Full sync function
+  const syncData = useCallback(async () => {
+    const connStr = connectionStringRef.current;
+    if (!connStr || !deviceId) {
+      setSyncStatus(prev => ({
+        ...prev,
+        error: 'Device ID or connection string not available',
       }));
       return;
     }
@@ -84,39 +243,26 @@ export function useSync() {
     }));
 
     try {
-      // Get Supabase credentials from environment
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase configuration not found');
+      // Sync buckets first
+      const bucketsOk = await syncBuckets();
+      if (!bucketsOk) {
+        throw new Error('Failed to sync buckets');
       }
 
-      // Get the user's access token for authenticated requests
-      const accessToken = session.access_token;
+      // Sync events
+      const synced = await syncEvents();
 
-      // Call the sync command with the access token
-      await invoke('sync_data_command', {
-        deviceId,
-        userId: user.id,
-        supabaseUrl,
-        supabaseKey,
-        accessToken,
-      });
-
-      // Update sync status
       setSyncStatus(prev => ({
         ...prev,
         isSyncing: false,
         lastSyncTime: new Date().toISOString(),
-        unsyncedCount: 0,
         error: null,
       }));
 
-      // After sync, check for any remaining unsynced sessions to update the UI
-      await checkUnsyncedSessions();
+      // Check remaining unsynced
+      await checkUnsyncedEvents();
 
-      console.log('Sync completed successfully');
+      console.log(`Sync completed: ${synced} events synced`);
     } catch (e) {
       logError(e, 'syncData');
       setSyncStatus(prev => ({
@@ -125,64 +271,83 @@ export function useSync() {
         error: e instanceof Error ? e.message : 'Sync failed',
       }));
     }
-  }, [user, deviceId, session, checkUnsyncedSessions]);
+  }, [deviceId, syncBuckets, syncEvents, checkUnsyncedEvents]);
 
-  // Test Supabase connection
-  const testConnection = async () => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      setSyncStatus(prev => ({
-        ...prev,
-        error: 'Supabase configuration not found',
-      }));
-      return false;
+  // Get events from Neon (cloud)
+  const getCloudEvents = useCallback(async (
+    options?: {
+      bucketId?: string;
+      start?: string;
+      end?: string;
+      limit?: number;
+    }
+  ): Promise<NeonEvent[]> => {
+    const connStr = connectionStringRef.current;
+    if (!connStr || !deviceId) {
+      return [];
     }
 
     try {
-      await invoke('test_supabase_connection_command', {
-        supabaseUrl,
-        supabaseKey,
+      return await invoke<NeonEvent[]>('neon_get_events', {
+        connectionString: connStr,
+        deviceId,
+        bucketId: options?.bucketId,
+        start: options?.start,
+        end: options?.end,
+        limit: options?.limit,
       });
-      setSyncStatus(prev => ({
-        ...prev,
-        error: null,
-      }));
-      return true;
     } catch (e) {
-      logError(e, 'testConnection');
-      setSyncStatus(prev => ({
-        ...prev,
-        error: 'Failed to connect to Supabase',
-      }));
-      return false;
+      logError(e, 'getCloudEvents');
+      return [];
     }
-  };
+  }, [deviceId]);
 
-  // Auto-sync when user logs in
-  useEffect(() => {
-    if (user && deviceId) {
-      checkUnsyncedSessions();
+  // Get buckets from Neon (cloud)
+  const getCloudBuckets = useCallback(async (): Promise<NeonBucket[]> => {
+    const connStr = connectionStringRef.current;
+    if (!connStr || !deviceId) {
+      return [];
     }
-  }, [user, deviceId, checkUnsyncedSessions]);
 
-  // Periodic batch sync (every 30 seconds)
+    try {
+      return await invoke<NeonBucket[]>('neon_get_buckets', {
+        connectionString: connStr,
+        deviceId,
+      });
+    } catch (e) {
+      logError(e, 'getCloudBuckets');
+      return [];
+    }
+  }, [deviceId]);
+
+  // Auto-sync setup
   useEffect(() => {
-    if (!user || !deviceId) return;
+    if (!config?.autoSync || !connectionStringRef.current || !deviceId) return;
+
+    // Initial check
+    checkUnsyncedEvents();
 
     const interval = setInterval(() => {
       syncData();
-    }, 30000);
+    }, config.syncInterval || 30000);
 
     return () => clearInterval(interval);
-  }, [user, deviceId, syncData]);
+  }, [config?.autoSync, config?.syncInterval, deviceId, syncData, checkUnsyncedEvents]);
 
   return {
     syncStatus,
-    syncData,
-    testConnection,
-    checkUnsyncedSessions,
     deviceId,
+    // Configuration
+    setConnectionString,
+    // Actions
+    testConnection,
+    initSchema,
+    syncData,
+    syncBuckets,
+    syncEvents,
+    checkUnsyncedEvents,
+    // Cloud queries
+    getCloudEvents,
+    getCloudBuckets,
   };
-} 
+}

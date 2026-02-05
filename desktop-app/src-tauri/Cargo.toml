@@ -34,6 +34,7 @@ tokio = { version = "1.45.1", features = ["time", "full"] }
 reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-store = "2.3.0"
 gethostname = "0.5"
+regex = "1.10"
 
 # ActivityWatch REST API server
 axum = "0.7"

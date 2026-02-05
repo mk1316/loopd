@@ -247,6 +247,17 @@ fn main() {
             app_lib::aw_commands::aw_set_setting,
             app_lib::aw_commands::aw_export_bucket,
             app_lib::aw_commands::aw_export_all,
+            // Query API commands
+            app_lib::aw_query::aw_query,
+            app_lib::aw_query::aw_categorize,
+            app_lib::aw_query::aw_summarize,
+            // Neon cloud sync commands
+            app_lib::neon::neon_test_connection,
+            app_lib::neon::neon_init_schema,
+            app_lib::neon::neon_sync_events,
+            app_lib::neon::neon_sync_bucket,
+            app_lib::neon::neon_get_events,
+            app_lib::neon::neon_get_buckets,
             minimize_to_tray,
             test_command
         ])
