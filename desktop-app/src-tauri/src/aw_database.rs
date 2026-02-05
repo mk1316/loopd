@@ -275,7 +275,8 @@ impl AwDatabase {
             let time_diff = (heartbeat.timestamp - last_end).num_milliseconds() as f64 / 1000.0;
 
             // If data matches and within pulsetime, merge
-            if time_diff <= pulsetime && last_data == heartbeat.data {
+            // Note: time_diff >= 0 check prevents merging when clock drift causes negative differences
+            if time_diff >= 0.0 && time_diff <= pulsetime && last_data == heartbeat.data {
                 // Extend the last event
                 let new_duration = (heartbeat.timestamp - last_timestamp).num_milliseconds() as f64 / 1000.0 + heartbeat.duration;
 

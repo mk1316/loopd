@@ -422,8 +422,14 @@ impl QueryContext {
                 }
             }
             CategoryRuleType::Glob { pattern } => {
-                let pattern = pattern.replace("*", ".*").replace("?", ".");
-                if let Ok(re) = regex::Regex::new(&pattern) {
+                // Convert glob pattern to regex by:
+                // 1. First escape all regex metacharacters (except * and ?)
+                // 2. Then convert glob wildcards to regex equivalents
+                let escaped = regex::escape(pattern)
+                    .replace(r"\*", ".*")  // glob * -> regex .*
+                    .replace(r"\?", ".");  // glob ? -> regex .
+                let anchored = format!("^{}$", escaped);  // Anchor for full match
+                if let Ok(re) = regex::Regex::new(&anchored) {
                     re.is_match(app) || re.is_match(title)
                 } else {
                     false

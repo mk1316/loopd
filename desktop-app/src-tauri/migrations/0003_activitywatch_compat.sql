@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS key_value (
 
 -- Migrate existing sessions to events format
 -- First, create a default bucket for existing data
+-- Note: Using strftime to produce RFC3339/ISO8601 format with 'T' separator and 'Z' suffix
 INSERT OR IGNORE INTO buckets (id, name, type, client, hostname, created, data, last_updated)
 SELECT
     'aw-watcher-window_' || COALESCE(
@@ -56,19 +57,20 @@ SELECT
         (SELECT name FROM devices LIMIT 1),
         'localhost'
     ),
-    datetime('now'),
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
     '{}',
-    datetime('now')
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 WHERE EXISTS (SELECT 1 FROM sessions LIMIT 1);
 
 -- Migrate sessions to events
+-- Using strftime for RFC3339 format to ensure proper timestamp comparison with new events
 INSERT OR IGNORE INTO events (bucket_id, timestamp, duration, data)
 SELECT
     'aw-watcher-window_' || COALESCE(
         (SELECT name FROM devices LIMIT 1),
         'localhost'
     ),
-    datetime(start_time, 'unixepoch'),
+    strftime('%Y-%m-%dT%H:%M:%SZ', start_time, 'unixepoch'),
     COALESCE(duration_sec, 0),
     json_object('app', app_name, 'title', COALESCE(window_title, ''))
 FROM sessions
