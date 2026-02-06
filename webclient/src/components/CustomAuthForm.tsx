@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Shield, Mail, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { posthog } from '@/lib/posthog';
-
-const supabase = createClient();
 
 interface ValidationErrors {
   email?: string;
@@ -17,8 +15,33 @@ interface ValidationErrors {
   confirmPassword?: string;
 }
 
+function AuthUnavailable() {
+  return (
+    <div className="w-full max-w-md mx-auto">
+      <Card className="card-dark border-white/20 backdrop-blur-xl">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-500/20 border border-yellow-500/30">
+              <AlertTriangle className="h-8 w-8 text-yellow-400" />
+            </div>
+          </div>
+          <div>
+            <CardTitle className="text-2xl font-bold text-white">
+              Authentication Unavailable
+            </CardTitle>
+            <CardDescription className="text-gray-400 mt-2">
+              Authentication services are currently unavailable. Please try again later or download the desktop app.
+            </CardDescription>
+          </div>
+        </CardHeader>
+      </Card>
+    </div>
+  );
+}
+
 function CustomAuthFormInner() {
   const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -42,12 +65,12 @@ function CustomAuthFormInner() {
   // Real-time validation
   useEffect(() => {
     const errors: ValidationErrors = {};
-    
+
     // Email validation
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = 'Please enter a valid email address';
     }
-    
+
     // Password validation
     if (password) {
       if (password.length < 6) {
@@ -56,14 +79,19 @@ function CustomAuthFormInner() {
         errors.password = 'Password must contain uppercase, lowercase, and number';
       }
     }
-    
+
     // Confirm password validation (only for sign-up)
     if (mode === 'sign-up' && confirmPassword && password !== confirmPassword) {
       errors.confirmPassword = 'Passwords do not match';
     }
-    
+
     setValidationErrors(errors);
   }, [email, password, confirmPassword, mode]);
+
+  // If Supabase is not available, show a message
+  if (!supabase) {
+    return <AuthUnavailable />;
+  }
 
   const handleModeToggle = () => {
     setIsTransitioning(true);
@@ -73,7 +101,7 @@ function CustomAuthFormInner() {
     setEmail('');
     setPassword('');
     setConfirmPassword('');
-    
+
     setTimeout(() => {
       setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
       setIsTransitioning(false);
@@ -82,35 +110,35 @@ function CustomAuthFormInner() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check for validation errors
     if (Object.keys(validationErrors).length > 0) {
       setError('Please fix the validation errors above');
       return;
     }
-    
+
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
       if (mode === 'sign-in') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          posthog?.capture('login_error', { 
+          posthog?.capture('login_error', {
             error_message: error.message,
             method: 'email_password'
           });
           setError(getErrorMessage(error.message));
         } else {
-          posthog?.capture('login_success', { 
+          posthog?.capture('login_success', {
             method: 'email_password'
           });
           setSuccess('Signed in successfully!');
         }
       } else {
-        const { error } = await supabase.auth.signUp({ 
-          email, 
+        const { error } = await supabase.auth.signUp({
+          email,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/confirm`,
@@ -120,20 +148,20 @@ function CustomAuthFormInner() {
           }
         });
         if (error) {
-          posthog?.capture('signup_error', { 
+          posthog?.capture('signup_error', {
             error_message: error.message,
             method: 'email_password'
           });
           setError(getErrorMessage(error.message));
         } else {
-          posthog?.capture('signup_success', { 
+          posthog?.capture('signup_success', {
             method: 'email_password'
           });
           setSuccess('Check your email to verify your account!');
         }
       }
     } catch (err) {
-      posthog?.capture('error_occurred', { 
+      posthog?.capture('error_occurred', {
         error_type: 'authentication_exception',
         error_message: err instanceof Error ? err.message : 'Unknown error',
         method: mode === 'sign-in' ? 'email_password_login' : 'email_password_signup'
@@ -147,7 +175,7 @@ function CustomAuthFormInner() {
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
     setLoading(true);
     setError('');
-    
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -155,20 +183,20 @@ function CustomAuthFormInner() {
           redirectTo: `${window.location.origin}/`
         }
       });
-      
+
       if (error) {
-        posthog?.capture('login_error', { 
+        posthog?.capture('login_error', {
           error_message: error.message,
           method: `oauth_${provider}`
         });
         setError(getErrorMessage(error.message));
       } else {
-        posthog?.capture('login_success', { 
+        posthog?.capture('login_success', {
           method: `oauth_${provider}`
         });
       }
     } catch (err) {
-      posthog?.capture('error_occurred', { 
+      posthog?.capture('error_occurred', {
         error_type: 'social_login_exception',
         error_message: err instanceof Error ? err.message : 'Unknown error',
         method: `oauth_${provider}`
@@ -187,13 +215,13 @@ function CustomAuthFormInner() {
       'Password should be at least 6 characters': 'Password must be at least 6 characters long.',
       'Unable to validate email address: invalid format': 'Please enter a valid email address.'
     };
-    
+
     return errorMap[message] || message;
   };
 
-  const isFormValid = Object.keys(validationErrors).length === 0 && 
-                     email && 
-                     password && 
+  const isFormValid = Object.keys(validationErrors).length === 0 &&
+                     email &&
+                     password &&
                      (mode === 'sign-in' || (mode === 'sign-up' && confirmPassword));
 
   return (
@@ -216,14 +244,14 @@ function CustomAuthFormInner() {
             </CardDescription>
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
           {error && (
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20" role="alert">
               <p className="text-red-400 text-sm">{error}</p>
             </div>
           )}
-          
+
           {success && (
             <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20" role="alert">
               <p className="text-green-400 text-sm">{success}</p>
@@ -282,8 +310,8 @@ function CustomAuthFormInner() {
                   type="email"
                   placeholder="Email address"
                   className={`w-full pl-10 bg-white/5 text-white border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-gray-400 text-base ${
-                    validationErrors.email 
-                      ? 'border-red-500/50 focus:border-red-500/50' 
+                    validationErrors.email
+                      ? 'border-red-500/50 focus:border-red-500/50'
                       : 'border-white/10 focus:border-blue-500/50'
                   }`}
                   value={email}
@@ -311,8 +339,8 @@ function CustomAuthFormInner() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Password"
                   className={`w-full pl-10 pr-10 bg-white/5 text-white border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-gray-400 text-base ${
-                    validationErrors.password 
-                      ? 'border-red-500/50 focus:border-red-500/50' 
+                    validationErrors.password
+                      ? 'border-red-500/50 focus:border-red-500/50'
                       : 'border-white/10 focus:border-blue-500/50'
                   }`}
                   value={password}
@@ -348,8 +376,8 @@ function CustomAuthFormInner() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm password"
                     className={`w-full pl-10 pr-10 bg-white/5 text-white border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-gray-400 text-base ${
-                      validationErrors.confirmPassword 
-                        ? 'border-red-500/50 focus:border-red-500/50' 
+                      validationErrors.confirmPassword
+                        ? 'border-red-500/50 focus:border-red-500/50'
                         : 'border-white/10 focus:border-blue-500/50'
                     }`}
                     value={confirmPassword}
@@ -426,4 +454,4 @@ export default function CustomAuthForm() {
       <CustomAuthFormInner />
     </Suspense>
   );
-} 
+}

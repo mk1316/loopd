@@ -1,3 +1,7 @@
+//! DEPRECATED: This module is being replaced by neon.rs for cloud sync.
+//! Supabase sync will be removed in a future version.
+//! Please migrate to use the Neon cloud sync functionality instead.
+
 use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

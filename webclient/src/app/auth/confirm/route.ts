@@ -50,6 +50,10 @@ export async function GET(request: NextRequest) {
 
         const supabase = await createClient()
 
+        if (!supabase) {
+            redirect('/login?message=' + encodeURIComponent('Authentication service unavailable'))
+        }
+
         const { data, error } = await supabase.auth.verifyOtp({
             type,
             token_hash,

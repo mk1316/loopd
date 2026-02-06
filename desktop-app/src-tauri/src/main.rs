@@ -4,7 +4,9 @@
 use tauri::Manager;
 use std::sync::Arc;
 use sqlx::SqlitePool;
-use app_lib::{database::Database, start_tracking};
+use sqlx::sqlite::SqliteConnectOptions;
+use std::str::FromStr;
+use app_lib::{database::Database, aw_database::AwDatabase, start_tracking, aw_server, get_or_create_device_id};
 use std::path::PathBuf;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 use tauri::{
@@ -29,6 +31,12 @@ fn main() {
             version: 2,
             description: "create_block_rules_tables",
             sql: include_str!("../migrations/0002_block_rules.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "activitywatch_compat",
+            sql: include_str!("../migrations/0003_activitywatch_compat.sql"),
             kind: MigrationKind::Up,
         },
     ];
@@ -100,9 +108,15 @@ fn main() {
             // The plugin will resolve "sqlite:usage.db" relative to AppConfig, so we do the same.
             let db_url = format!("sqlite://{}", db_path.to_string_lossy());
 
-            // Connect the pool (will create the file if missing)
+            // Connect the pool with foreign key constraints enabled for ALL connections
+            // Using SqliteConnectOptions ensures every connection in the pool has foreign keys ON
             let pool = tauri::async_runtime::block_on(async {
-                SqlitePool::connect(&db_url)
+                let options = SqliteConnectOptions::from_str(&db_url)
+                    .expect("Failed to parse database URL")
+                    .create_if_missing(true)
+                    .pragma("foreign_keys", "ON");  // Applied to every connection
+
+                SqlitePool::connect_with(options)
                     .await
                     .expect("Failed to connect to SQLite database")
             });
@@ -111,7 +125,10 @@ fn main() {
             // No need for additional sqlx::migrate! call
 
             // Wrap the Database in an Arc so it can be shared safely
-            let db = Arc::new(Database::new(pool));
+            let db = Arc::new(Database::new(pool.clone()));
+
+            // Create ActivityWatch-compatible database
+            let aw_db = Arc::new(AwDatabase::new(pool));
 
             // --- Use the local db variable for any setup work before manage ---
             tauri::async_runtime::block_on(async {
@@ -138,11 +155,22 @@ fn main() {
                 }
             });
 
-            // Make the Database available as managed state for commands
+            // Make the databases available as managed state for commands
             app.manage(db.clone());
+            app.manage(aw_db.clone());
 
             // Start background tracking, passing the same Arc
-            start_tracking(db.clone(), app.handle().clone());
+            start_tracking(db.clone(), aw_db.clone(), app.handle().clone());
+
+            // Start ActivityWatch-compatible REST API server on port 5600
+            let aw_db_for_server = aw_db.clone();
+            let hostname = gethostname::gethostname()
+                .to_string_lossy()
+                .to_string();
+            let device_id = get_or_create_device_id(&app.handle());
+            tauri::async_runtime::spawn(async move {
+                aw_server::start_server(aw_db_for_server, hostname, device_id, 5600).await;
+            });
 
             // Setup updater events
             app_lib::updater::setup_updater_events(app.handle().clone());
@@ -178,6 +206,7 @@ fn main() {
 
     tauri_builder
         .invoke_handler(tauri::generate_handler![
+            // Legacy commands
             app_lib::usage::get_active_app,
             app_lib::usage::get_active_app_with_title,
             app_lib::usage::check_accessibility_permissions_command,
@@ -208,6 +237,35 @@ fn main() {
             app_lib::updater::check_for_updates,
             app_lib::updater::install_update,
             app_lib::updater::get_current_version,
+            // ActivityWatch-compatible commands
+            app_lib::aw_commands::aw_get_info,
+            app_lib::aw_commands::aw_get_buckets,
+            app_lib::aw_commands::aw_get_bucket,
+            app_lib::aw_commands::aw_create_bucket,
+            app_lib::aw_commands::aw_delete_bucket,
+            app_lib::aw_commands::aw_get_events,
+            app_lib::aw_commands::aw_get_event,
+            app_lib::aw_commands::aw_insert_events,
+            app_lib::aw_commands::aw_delete_event,
+            app_lib::aw_commands::aw_get_event_count,
+            app_lib::aw_commands::aw_heartbeat,
+            app_lib::aw_commands::aw_get_usage_summary,
+            app_lib::aw_commands::aw_get_current_event,
+            app_lib::aw_commands::aw_get_setting,
+            app_lib::aw_commands::aw_set_setting,
+            app_lib::aw_commands::aw_export_bucket,
+            app_lib::aw_commands::aw_export_all,
+            // Query API commands
+            app_lib::aw_query::aw_query,
+            app_lib::aw_query::aw_categorize,
+            app_lib::aw_query::aw_summarize,
+            // Neon cloud sync commands
+            app_lib::neon::neon_test_connection,
+            app_lib::neon::neon_init_schema,
+            app_lib::neon::neon_sync_events,
+            app_lib::neon::neon_sync_bucket,
+            app_lib::neon::neon_get_events,
+            app_lib::neon::neon_get_buckets,
             minimize_to_tray,
             test_command
         ])
