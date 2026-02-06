@@ -341,24 +341,31 @@ pub fn start_tracking(db: Db, aw_db: AwDb, app_handle: tauri::AppHandle) {
                         if let Some(current_app_name) = &current_app {
                             let aw_db_clone = aw_db.clone();
                             let bucket_id_clone = bucket_id.clone();
-                            let app_name = current_app_name.clone();
+                            let expected_app = current_app_name.clone();
                             tauri::async_runtime::spawn(async move {
-                                // Get the current window title - skip heartbeat if we can't get it
-                                // Using empty string would cause heartbeat comparison to fail and fragment events
-                                let title = match crate::usage::get_active_app_with_title().await {
-                                    Ok(active) => active.title,
+                                // Get fresh app and title together to ensure consistency
+                                // This prevents mismatched app/title if user switches apps mid-heartbeat
+                                let active = match crate::usage::get_active_app_with_title().await {
+                                    Ok(active) => active,
                                     Err(e) => {
-                                        log::debug!("Skipping heartbeat - couldn't get window title: {}", e);
-                                        return; // Skip this heartbeat, next one will succeed
+                                        log::debug!("Skipping heartbeat - couldn't get window info: {}", e);
+                                        return;
                                     }
                                 };
+
+                                // Verify the app hasn't changed - if it has, skip heartbeat
+                                // The change will be detected on the next tracking cycle
+                                if active.name != expected_app {
+                                    log::debug!("Skipping heartbeat - app changed from {} to {}", expected_app, active.name);
+                                    return;
+                                }
 
                                 let heartbeat = aw_models::Heartbeat {
                                     timestamp: chrono::Utc::now(),
                                     duration: 0.0, // Duration is calculated from timestamp diff during merge
                                     data: serde_json::json!({
-                                        "app": app_name,
-                                        "title": title
+                                        "app": active.name,
+                                        "title": active.title
                                     }),
                                 };
                                 // Use 10 minute pulsetime for merging consecutive events
