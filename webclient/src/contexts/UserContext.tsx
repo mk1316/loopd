@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { posthog } from '@/lib/posthog'
@@ -10,6 +10,7 @@ interface UserContextType {
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  isSupabaseAvailable: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -18,9 +19,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
+    // If Supabase is not available, just set loading to false
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -53,10 +60,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, [supabase.auth]);
+  }, [supabase]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
   };
 
   const value = {
@@ -64,6 +73,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signOut,
+    isSupabaseAvailable: !!supabase,
   };
 
   return (

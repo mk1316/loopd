@@ -1,18 +1,17 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, SupabaseClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function createClient() {
-    const cookieStore = await cookies()
+export async function createClient(): Promise<SupabaseClient | null> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-        console.error('Missing Supabase environment variables:', {
-            url: supabaseUrl ? 'present' : 'missing',
-            key: supabaseAnonKey ? 'present' : 'missing'
-        })
-        throw new Error('Supabase configuration is missing. Please check your environment variables.')
+        // During build time or when env vars are missing, return null
+        // This allows static pages to build without Supabase
+        return null
     }
+
+    const cookieStore = await cookies()
 
     return createServerClient(supabaseUrl, supabaseAnonKey, {
         auth: {
