@@ -60,23 +60,42 @@ impl NeonClient {
         }
     }
 
+    /// Build the Neon HTTP API URL from the connection string
+    /// Extracts just the host from postgres://user:pass@host/database?params
+    /// and constructs https://host/sql
+    fn build_neon_api_url(&self) -> Result<String> {
+        let conn = &self.connection_string;
+
+        // Remove protocol prefix
+        let without_protocol = conn
+            .strip_prefix("postgres://")
+            .or_else(|| conn.strip_prefix("postgresql://"))
+            .ok_or_else(|| anyhow::anyhow!("Invalid connection string: missing postgres:// prefix"))?;
+
+        // Find the host - it comes after optional user:pass@ and before /database or ?params
+        let after_auth = if let Some(at_pos) = without_protocol.find('@') {
+            &without_protocol[at_pos + 1..]
+        } else {
+            without_protocol
+        };
+
+        // Extract just the host (before any / or ?)
+        let host = after_auth
+            .split('/')
+            .next()
+            .and_then(|s| s.split('?').next())
+            .ok_or_else(|| anyhow::anyhow!("Invalid connection string: couldn't extract host"))?;
+
+        Ok(format!("https://{}/sql", host))
+    }
+
     /// Execute a SQL query via Neon's HTTP API
     async fn execute(&self, query: &str, params: &[Value]) -> Result<Vec<Value>> {
         // Neon serverless driver uses a specific HTTP endpoint
         // Format: https://<endpoint-host>/sql
-        // Must handle query parameters properly (e.g., ?sslmode=require)
-        let base_url = self.connection_string
-            .replace("postgres://", "https://")
-            .replace("postgresql://", "https://");
-
-        // Parse URL to properly insert /sql before query string
-        let url = if let Some(query_start) = base_url.find('?') {
-            // Insert /sql before the query string
-            format!("{}/sql{}", &base_url[..query_start], &base_url[query_start..])
-        } else {
-            // No query string, just append /sql
-            format!("{}/sql", base_url)
-        };
+        // Connection string format: postgres://user:pass@host/database?params
+        // We need to extract just the host and use https://host/sql
+        let url = self.build_neon_api_url()?;
 
         let body = serde_json::json!({
             "query": query,
