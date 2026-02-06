@@ -93,12 +93,31 @@ impl AwDatabase {
     }
 
     /// Create bucket if it doesn't exist, return existing or new bucket
+    /// Uses INSERT OR IGNORE to avoid TOCTOU race conditions
     pub async fn get_or_create_bucket(&self, bucket: &Bucket) -> Result<Bucket, sqlx::Error> {
-        if let Some(existing) = self.get_bucket(&bucket.id).await? {
-            return Ok(existing);
-        }
-        self.create_bucket(bucket).await?;
-        Ok(bucket.clone())
+        let data_json = bucket.data.as_ref()
+            .map(|d| serde_json::to_string(d).unwrap_or_else(|_| "{}".to_string()));
+
+        // Use INSERT OR IGNORE to atomically create if not exists
+        sqlx::query(
+            "INSERT OR IGNORE INTO buckets (id, name, type, client, hostname, created, data, last_updated)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&bucket.id)
+        .bind(&bucket.name)
+        .bind(&bucket.bucket_type)
+        .bind(&bucket.client)
+        .bind(&bucket.hostname)
+        .bind(bucket.created.to_rfc3339())
+        .bind(&data_json)
+        .bind(bucket.last_updated.map(|dt| dt.to_rfc3339()))
+        .execute(&self.pool)
+        .await?;
+
+        // Now fetch the bucket (either newly created or existing)
+        self.get_bucket(&bucket.id).await?.ok_or_else(|| {
+            sqlx::Error::RowNotFound
+        })
     }
 
     /// Delete a bucket and all its events
@@ -191,7 +210,14 @@ impl AwDatabase {
     }
 
     /// Insert multiple events into a bucket
+    /// Uses a transaction to ensure all-or-nothing insertion
     pub async fn insert_events(&self, bucket_id: &str, events: &[Event]) -> Result<Vec<Event>, sqlx::Error> {
+        if events.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Start a transaction for atomic batch insert
+        let mut tx = self.pool.begin().await?;
         let mut inserted = Vec::new();
 
         for event in events {
@@ -204,7 +230,7 @@ impl AwDatabase {
             .bind(event.timestamp.to_rfc3339())
             .bind(event.duration)
             .bind(&data_json)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
 
             let mut new_event = event.clone();
@@ -213,8 +239,15 @@ impl AwDatabase {
             inserted.push(new_event);
         }
 
-        // Update bucket's last_updated
-        self.update_bucket_last_updated(bucket_id).await?;
+        // Update bucket's last_updated within the same transaction
+        sqlx::query("UPDATE buckets SET last_updated = ? WHERE id = ?")
+            .bind(Utc::now().to_rfc3339())
+            .bind(bucket_id)
+            .execute(&mut *tx)
+            .await?;
+
+        // Commit the transaction
+        tx.commit().await?;
 
         Ok(inserted)
     }

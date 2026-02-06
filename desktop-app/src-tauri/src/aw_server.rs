@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::aw_database::AwDatabase;
-use crate::aw_models::{Bucket, Event, GetEventsParams, Heartbeat, ServerInfo};
+use crate::aw_models::{Bucket, BucketExport, Event, GetEventsParams, Heartbeat, ServerInfo};
 use crate::aw_query::{QueryRequest, execute_query};
 
 /// Shared state for the API server
@@ -280,13 +280,6 @@ async fn heartbeat(
 }
 
 // ========== Export Endpoints ==========
-
-#[derive(Debug, Serialize)]
-struct BucketExport {
-    #[serde(flatten)]
-    bucket: Bucket,
-    events: Vec<Event>,
-}
 
 async fn export_bucket(
     State(state): State<AppState>,

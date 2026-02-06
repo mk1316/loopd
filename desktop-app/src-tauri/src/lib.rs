@@ -319,8 +319,8 @@ pub fn start_tracking(db: Db, aw_db: AwDb, app_handle: tauri::AppHandle) {
                                         "title": title_str
                                     }),
                                 };
-                                // Use 5 second pulsetime for merging events
-                                if let Err(e) = aw_db_clone.heartbeat(&bucket_id_clone, &heartbeat, 5.0).await {
+                                // Use 10 minute pulsetime for merging consecutive events
+                                if let Err(e) = aw_db_clone.heartbeat(&bucket_id_clone, &heartbeat, 600.0).await {
                                     log::warn!("Failed to send AW heartbeat: {}", e);
                                 }
                             });
@@ -361,8 +361,8 @@ pub fn start_tracking(db: Db, aw_db: AwDb, app_handle: tauri::AppHandle) {
                                         "title": title
                                     }),
                                 };
-                                // Use 5 second pulsetime for merging events
-                                if let Err(e) = aw_db_clone.heartbeat(&bucket_id_clone, &heartbeat, 5.0).await {
+                                // Use 10 minute pulsetime for merging consecutive events
+                                if let Err(e) = aw_db_clone.heartbeat(&bucket_id_clone, &heartbeat, 600.0).await {
                                     log::warn!("Failed to send AW heartbeat: {}", e);
                                 }
                             });
