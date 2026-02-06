@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use chrono::{DateTime, Utc};
 
-use crate::aw_models::Event;
-
 /// Neon event record for cloud storage
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NeonEvent {
@@ -18,19 +16,6 @@ pub struct NeonEvent {
     pub synced_at: Option<String>,
 }
 
-impl NeonEvent {
-    pub fn from_event(event: &Event, bucket_id: &str, device_id: &str) -> Self {
-        Self {
-            id: event.id,
-            bucket_id: bucket_id.to_string(),
-            device_id: device_id.to_string(),
-            timestamp: event.timestamp.to_rfc3339(),
-            duration: event.duration,
-            data: event.data.clone(),
-            synced_at: None,
-        }
-    }
-}
 
 /// Neon bucket record for cloud storage
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,8 +46,8 @@ impl NeonClient {
     }
 
     /// Build the Neon HTTP API URL from the connection string
-    /// Extracts just the host from postgres://user:pass@host/database?params
-    /// and constructs https://host/sql
+    /// Extracts just the host from postgres://user:pass@host:port/database?params
+    /// and constructs https://host/sql (stripping any port number)
     fn build_neon_api_url(&self) -> Result<String> {
         let conn = &self.connection_string;
 
@@ -79,12 +64,18 @@ impl NeonClient {
             without_protocol
         };
 
-        // Extract just the host (before any / or ?)
-        let host = after_auth
+        // Extract just the host (before any /, ?, or :port)
+        let host_with_port = after_auth
             .split('/')
             .next()
             .and_then(|s| s.split('?').next())
             .ok_or_else(|| anyhow::anyhow!("Invalid connection string: couldn't extract host"))?;
+
+        // Strip port number if present (e.g., "host:5432" -> "host")
+        let host = host_with_port
+            .split(':')
+            .next()
+            .unwrap_or(host_with_port);
 
         Ok(format!("https://{}/sql", host))
     }
@@ -215,6 +206,8 @@ impl NeonClient {
     }
 
     /// Sync events to Neon
+    /// Only syncs events that have a local_id to avoid duplicate entries
+    /// (NULL local_id values bypass the unique constraint in PostgreSQL)
     pub async fn sync_events(&self, events: &[NeonEvent]) -> Result<usize> {
         if events.is_empty() {
             return Ok(0);
@@ -222,6 +215,13 @@ impl NeonClient {
 
         let mut synced = 0;
         for event in events {
+            // Skip events without a local_id - they haven't been persisted locally yet
+            // and would bypass the unique constraint (NULL != NULL in SQL)
+            let local_id = match event.id {
+                Some(id) => id,
+                None => continue,
+            };
+
             let result = self.execute(
                 r#"
                 INSERT INTO events (local_id, bucket_id, device_id, timestamp, duration, data)
@@ -231,7 +231,7 @@ impl NeonClient {
                     data = EXCLUDED.data
                 "#,
                 &[
-                    event.id.map(|id| Value::Number(id.into())).unwrap_or(Value::Null),
+                    Value::Number(local_id.into()),
                     Value::String(event.bucket_id.clone()),
                     Value::String(event.device_id.clone()),
                     Value::String(event.timestamp.clone()),

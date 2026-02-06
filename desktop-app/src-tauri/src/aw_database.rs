@@ -69,29 +69,6 @@ impl AwDatabase {
         }))
     }
 
-    /// Create a new bucket
-    pub async fn create_bucket(&self, bucket: &Bucket) -> Result<(), sqlx::Error> {
-        let data_json = bucket.data.as_ref()
-            .map(|d| serde_json::to_string(d).unwrap_or_else(|_| "{}".to_string()));
-
-        sqlx::query(
-            "INSERT INTO buckets (id, name, type, client, hostname, created, data, last_updated)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        )
-        .bind(&bucket.id)
-        .bind(&bucket.name)
-        .bind(&bucket.bucket_type)
-        .bind(&bucket.client)
-        .bind(&bucket.hostname)
-        .bind(bucket.created.to_rfc3339())
-        .bind(&data_json)
-        .bind(bucket.last_updated.map(|dt| dt.to_rfc3339()))
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
-    }
-
     /// Create bucket if it doesn't exist, return existing or new bucket
     /// Uses INSERT OR IGNORE to avoid TOCTOU race conditions
     pub async fn get_or_create_bucket(&self, bucket: &Bucket) -> Result<Bucket, sqlx::Error> {
@@ -422,14 +399,6 @@ impl AwDatabase {
         Ok(())
     }
 
-    /// Delete a setting
-    pub async fn delete_setting(&self, key: &str) -> Result<(), sqlx::Error> {
-        sqlx::query("DELETE FROM key_value WHERE key = ?")
-            .bind(key)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
 }
 
 /// Helper to parse datetime from SQLite string
